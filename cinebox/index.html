@@ -51,7 +51,10 @@ video#v{width:100%;height:100%;background:#000;object-fit:contain}
 #ctrl input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:rgba(255,255,255,.3)}
 #ctrl input[type=range]::-moz-range-progress{height:4px;border-radius:2px;background:#fff}
 #ctrl input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:#fff}
-#ctrl input:focus-visible,#ctrl button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#ctrl input:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#ctrl button:focus-visible{outline:3px solid #fff;outline-offset:1px;background:rgba(255,255,255,.28);opacity:1}
+.item:focus-visible{background:var(--fillh)}
+.item.now:focus-visible{background:var(--ac);outline-color:var(--tx)}
 #pvbox{position:absolute;bottom:30px;left:0;transform:translateX(-50%);width:200px;border-radius:12px;overflow:hidden;background:#000;border:1px solid rgba(255,255,255,.35);box-shadow:0 10px 30px rgba(0,0,0,.6);display:none;pointer-events:none}
 #pvbox.on{display:block}
 #pv{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#000}
@@ -134,7 +137,7 @@ kbd{background:var(--fill);border-radius:6px;padding:1px 6px;font-family:inherit
     <h2>Playlist <span id="count"></span></h2>
     <input id="filter" type="search" placeholder="Search files" aria-label="Search files">
     <ul id="list"></ul>
-    <div class="hint"><kbd>←</kbd><kbd>→</kbd> seek 10s (<kbd>Shift</kbd> = 1 min) · <kbd>↑</kbd><kbd>↓</kbd> volume · <kbd>Enter</kbd> play/pause · <kbd>N</kbd>/<kbd>P</kbd> next/prev · <kbd>F</kbd> fullscreen · <kbd>C</kbd> subtitles · <kbd>A</kbd> audio track · <kbd>L</kbd> playlist · <kbd>M</kbd> mute</div>
+    <div class="hint"><kbd>←</kbd><kbd>→</kbd> seek 10s (<kbd>Shift</kbd> = 1 min) · <kbd>↑</kbd><kbd>↓</kbd> buttons (then <kbd>←</kbd><kbd>→</kbd> + <kbd>Enter</kbd>) · <kbd>+</kbd><kbd>-</kbd> volume · <kbd>Enter</kbd> play/pause · <kbd>N</kbd>/<kbd>P</kbd> next/prev · <kbd>F</kbd> fullscreen · <kbd>C</kbd> subtitles · <kbd>A</kbd> audio track · <kbd>L</kbd> playlist · <kbd>M</kbd> mute</div>
   </aside>
 </main>
 <input type="file" id="fFiles" multiple accept="video/*,audio/*,.mkv,.avi,.mov,.flv,.wmv,.ts,.m2ts,.mpg,.mpeg,.3gp,.srt,.vtt" hidden>
@@ -295,14 +298,14 @@ $('bAud').onclick=cycleAud;$('bOut').onclick=pickOut;
 $('bFs').onclick=fs;$('bMute').onclick=mute;$('bSub').onclick=subs;$('bSpd').onclick=spd;$('bList').onclick=togList;
 $('vol').oninput=e=>{v.volume=e.target.value;v.muted=false};
 // After clicking a control, release focus so the remote's OK/Enter always toggles play/pause
-ctrl.addEventListener('click',e=>{const b=e.target.closest('button');if(b)b.blur()});
+ctrl.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&e.detail>0)b.blur()});
 v.addEventListener('click',toggle);
 v.addEventListener('dblclick',fs);
 document.addEventListener('fullscreenchange',()=>{if(document.activeElement)document.activeElement.blur();wake()});
 
 function wake(){
   ctrl.classList.remove('hide');stage.classList.remove('idle');clearTimeout(hideT);
-  if(!v.paused)hideT=setTimeout(()=>{ctrl.classList.add('hide');stage.classList.add('idle')},3500);
+  if(!v.paused)hideT=setTimeout(()=>{if(ctrl.contains(document.activeElement)){wake();return}ctrl.classList.add('hide');stage.classList.add('idle')},3500);
 }
 ['mousemove','touchstart','keydown','pointerdown'].forEach(ev=>stage.addEventListener(ev,wake));
 
@@ -345,22 +348,57 @@ document.addEventListener('drop',async e=>{
   ingest(out);
 });
 
-// Keyboard / TV remote
+// Keyboard / TV remote (D-pad friendly)
+const KC={415:'MediaPlay',19:'MediaPause',417:'MediaFastForward',412:'MediaRewind',10252:'MediaPlayPause',10009:'Escape',461:'Escape'};
+if(window.tizen&&tizen.tvinputdevice){['MediaPlayPause','MediaPlay','MediaPause','MediaRewind','MediaFastForward'].forEach(n=>{try{tizen.tvinputdevice.registerKey(n)}catch(e){}})}
+const hdr=document.querySelector('header');
+const hdrBtns=()=>[...hdr.querySelectorAll('button')];
+const barBtns=()=>[...ctrl.querySelectorAll('button')].filter(b=>b.offsetParent!==null);
+const startBtns=()=>[$('bDir2'),$('bFiles2'),...hdrBtns()];
+function foc(el){if(el){try{el.focus({focusVisible:true})}catch(e){el.focus()}}}
+function move(arr,cur,d){foc(arr[(arr.indexOf(cur)+d+arr.length)%arr.length])}
+const firstItem=()=>side.classList.contains('open')&&(list.querySelector('.now')||list.querySelector('.item'));
 document.addEventListener('keydown',e=>{
-  if(e.target.id==='filter')return;
-  const k=e.key,ae=document.activeElement;
-  const inList=ae&&ae.classList.contains('item');
-  const inChrome=ae&&ae.tagName==='BUTTON'&&(document.querySelector('header').contains(ae)||inList);
-  if(inList&&(k==='ArrowUp'||k==='ArrowDown')){
-    e.preventDefault();const all=[...list.querySelectorAll('.item')],j=all.indexOf(ae)+(k==='ArrowDown'?1:-1);
-    if(all[j])all[j].focus();return;
+  if(e.target.id==='filter'){
+    if(e.key==='ArrowDown'){e.preventDefault();foc(list.querySelector('.item'))}
+    else if(e.key==='Escape')e.target.blur();
+    return;
   }
-  if(inList&&k==='ArrowRight'){e.preventDefault();ae.blur();return}
-  if(inChrome&&(k==='Enter'||k===' '))return;
+  const k=KC[e.keyCode]||e.key,ae=document.activeElement;
+  const inList=ae&&ae.classList.contains('item');
+  const inHdr=ae&&hdr.contains(ae)&&ae.tagName==='BUTTON';
+  const inBar=ae&&ctrl.contains(ae);
+  const dir={ArrowLeft:-1,ArrowUp:-1,ArrowRight:1,ArrowDown:1}[k];
+  if(!loaded){
+    if(dir!==undefined){e.preventDefault();const a=startBtns();a.includes(ae)?move(a,ae,dir):foc(a[0])}
+    return;
+  }
+  if(inHdr&&dir!==undefined){
+    e.preventDefault();
+    if(k==='ArrowDown'){const t=firstItem();if(t)foc(t);else{ae.blur();wake()}}
+    else if(k!=='ArrowUp')move(hdrBtns(),ae,dir);
+    return;
+  }
+  if(inList){
+    if(k==='ArrowUp'||k==='ArrowDown'){
+      e.preventDefault();const all=[...list.querySelectorAll('.item')],j=all.indexOf(ae)+(k==='ArrowDown'?1:-1);
+      if(all[j])foc(all[j]);else if(j<0)foc($('bList'));return;
+    }
+    if(k==='ArrowRight'||k==='ArrowLeft'){e.preventDefault();ae.blur();wake();return}
+    if(k==='Enter'||k===' ')return;
+    if(k==='Escape'||k==='Backspace'){e.preventDefault();togList();ae.blur();wake();return}
+  }
+  if(inBar){
+    if(k==='ArrowLeft'||k==='ArrowRight'){e.preventDefault();move(barBtns(),ae,dir);wake();return}
+    if(k==='ArrowUp'||k==='ArrowDown'||k==='Escape'||k==='Backspace'){e.preventDefault();ae.blur();wake();return}
+    if(k==='Enter'||k===' '){wake();return}
+  }
+  if(inHdr&&(k==='Enter'||k===' '))return;
+  if(k==='ArrowUp'||k==='ArrowDown'){e.preventDefault();wake();foc($('bPlay'));return}
   if(k==='ArrowRight'||k==='MediaFastForward'){skip(e.shiftKey?60:10)}
   else if(k==='ArrowLeft'||k==='MediaRewind'){skip(e.shiftKey?-60:-10)}
-  else if(k==='ArrowUp'){e.preventDefault();vol(.05)}
-  else if(k==='ArrowDown'){e.preventDefault();vol(-.05)}
+  else if(k==='+'||k==='='){vol(.05)}
+  else if(k==='-'||k==='_'){vol(-.05)}
   else if(k===' '||k==='Enter'||k==='MediaPlayPause'){e.preventDefault();toggle();flashBig()}
   else if(k==='MediaPlay'){v.play()}else if(k==='MediaPause'){v.pause()}
   else if(k==='n'||k==='N'||k==='MediaTrackNext')play(cur+1);
@@ -369,9 +407,10 @@ document.addEventListener('keydown',e=>{
   else if(k==='m'||k==='M')mute();
   else if(k==='c'||k==='C')subs();
   else if(k==='a'||k==='A')cycleAud();
-  else if(k==='l'||k==='L'||k==='Escape'||k==='Backspace'){togList();if(side.classList.contains('open')){const it=list.querySelector('.now')||list.querySelector('.item');if(it)it.focus()}}
+  else if(k==='l'||k==='L'||k==='Escape'||k==='Backspace'){togList();const t=firstItem();if(t)foc(t)}
   wake();
 });
+foc($('bDir2'));
 // Icons, volume fill and theme
 const VOL='<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9zM16.5 12a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
 const MUTE='<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9zM16 9.4l1.4-1.4 2.1 2.1L21.6 8 23 9.4l-2.1 2.1L23 13.6 21.6 15l-2.1-2.1L17.4 15 16 13.6l2.1-2.1z"/></svg>';
