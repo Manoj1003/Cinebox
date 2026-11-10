@@ -34,8 +34,16 @@ body:not([data-view=player]) main,body:not([data-view=player]) .pbtn{display:non
 .tile b{font-size:1.05rem}.tile span{color:var(--mute);font-size:.85rem;line-height:1.5;font-weight:400}
 .panel{border-radius:var(--r);padding:20px 22px;display:grid;gap:14px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-label.f{display:flex;flex-direction:column;gap:5px;font-size:.82rem;color:var(--mute)}
-select,input[type=number]{font:inherit;font-size:.9rem;color:var(--tx);background:var(--fill);border:0;border-radius:12px;padding:9px 12px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:.85rem;font-weight:500;color:var(--tx)}
+select,input[type=number]{font:inherit;font-size:.92rem;color:CanvasText;background-color:Canvas;border:1px solid var(--line);border-radius:12px;padding:9px 12px;opacity:1}
+select{cursor:pointer;color-scheme:inherit}
+select option,select optgroup{background-color:Canvas;color:CanvasText}
+input[type=number]::placeholder{color:var(--mute);opacity:1}
+input[type=file]{color:var(--tx);font:inherit;font-size:.9rem}
+input[type=file]::file-selector-button{font:inherit;font-weight:600;color:#fff;background:var(--ac);border:0;border-radius:999px;padding:8px 16px;margin-right:12px;cursor:pointer}
+select:focus-visible,input[type=number]:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+label.chk,.msg,.sub,.tile span{color:var(--tx)}
+.sub,.tile span{opacity:.78}
 label.chk{display:flex;align-items:center;gap:8px;font-size:.9rem}
 progress{width:100%;height:8px;accent-color:var(--ac)}
 .res{list-style:none;margin:0;padding:0;display:grid;gap:8px}
@@ -164,7 +172,7 @@ kbd{background:var(--fill);border-radius:6px;padding:1px 6px;font-family:inherit
 </div></div>
 <div class="page" id="vVid"><div class="wrap">
   <h1>Convert videos</h1>
-  <p class="sub">Works with .mov, .mp4, .mkv, .avi and more. Conversion happens on this device, so long videos take time and need free memory. The converter downloads once (about 25 MB) the first time you use it.</p>
+  <p class="sub">Works with .mov, .mp4, .mkv, .avi and more. Conversion happens on this device, so long videos take time and need free memory. MP4, MOV and MKV at original size are copied without re-encoding, which takes seconds; choosing a smaller height or another format re-encodes and is slower. The converter downloads once (about 25 MB) the first time you use it.</p>
   <div class="panel glass">
     <input type="file" id="vIn" accept="video/*,audio/*,.mov,.mkv,.avi,.flv,.wmv,.ts,.m2ts,.mpg,.mpeg,.3gp">
     <div class="grid">
@@ -557,7 +565,7 @@ $('iGo').onclick=async()=>{
 
 // ---- Video converter (ffmpeg.wasm, loaded on first use)
 const MIME={mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska',avi:'video/x-msvideo',gif:'image/gif',mp3:'audio/mpeg',wav:'audio/wav'};
-const H264=['-c:v','libx264','-preset','ultrafast','-crf','26','-pix_fmt','yuv420p','-c:a','aac'];
+const H264=['-c:v','libx264','-preset','ultrafast','-tune','fastdecode','-crf','30','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-threads','0'];
 const ARGS={mp4:[...H264,'-movflags','+faststart'],mov:H264,mkv:H264,webm:['-c:v','libvpx','-b:v','1M','-deadline','realtime','-cpu-used','5','-c:a','libvorbis'],avi:['-c:v','mpeg4','-q:v','5','-c:a','libmp3lame'],gif:['-an'],mp3:['-vn','-c:a','libmp3lame','-q:a','2'],wav:['-vn']};
 let ffP=null;
 function loadFF(){
@@ -571,20 +579,32 @@ function loadFF(){
   });
   return ffP;
 }
-async function conv(file,fmt,hh,prog){
+async function conv(file,fmt,hh,prog,note){
   const f=await loadFF(),ext=((file.name.match(/\.([a-z0-9]+)$/i)||[])[1]||'mp4').toLowerCase(),i='in.'+ext,o='out.'+fmt;
   f.setProgress(({ratio})=>prog&&prog(Math.max(0,Math.min(1,ratio||0))));
   f.FS('writeFile',i,await FFmpeg.fetchFile(file));
   const vf=[];if(fmt==='gif')vf.push('fps=12');if(hh&&fmt!=='mp3'&&fmt!=='wav')vf.push('scale=-2:'+hh);
-  try{await f.run('-i',i,...(vf.length?['-vf',vf.join(',')]:[]),...ARGS[fmt],o);return new Blob([f.FS('readFile',o).buffer],{type:MIME[fmt]})}
-  finally{try{f.FS('unlink',i);f.FS('unlink',o)}catch(e){}}
+  const rd=()=>{try{const d=f.FS('readFile',o);return d.length>2048?d:null}catch(e){return null}};
+  try{
+    // Fast path: copy the streams without re-encoding (seconds, no quality loss) when the size is unchanged
+    if(!hh&&(fmt==='mp4'||fmt==='mov'||fmt==='mkv')){
+      if(note)note('Copying without re-encoding (fast)…');
+      try{await f.run('-i',i,'-map','0:v:0','-map','0:a:0?','-c','copy',...(fmt==='mkv'?[]:['-movflags','+faststart']),o)}catch(e){}
+      const d=rd();if(d)return new Blob([d.buffer],{type:MIME[fmt]});
+      try{f.FS('unlink',o)}catch(e){}
+      if(note)note('Re-encoding…');
+    }
+    await f.run('-i',i,...(vf.length?['-vf',vf.join(',')]:[]),...ARGS[fmt],o);
+    const d=rd();if(!d)throw new Error('the converter couldn’t read this file');
+    return new Blob([d.buffer],{type:MIME[fmt]});
+  }finally{try{f.FS('unlink',i);f.FS('unlink',o)}catch(e){}}
 }
 $('vGo').onclick=async()=>{
   const f=$('vIn').files[0],msg=$('vMsg'),pr=$('vP'),out=$('vOut'),btn=$('vGo');
   if(!f){msg.textContent='Choose a video first.';return}
   const fmt=$('vFmt').value;out.innerHTML='';btn.disabled=true;pr.hidden=false;pr.value=0;msg.textContent='Loading converter…';
   try{
-    const b=await conv(f,fmt,+$('vH').value,r=>{pr.value=r;msg.textContent='Converting… '+Math.round(r*100)+'%'});
+    let st='Converting…';const b=await conv(f,fmt,+$('vH').value,r=>{pr.value=r;msg.textContent=st+' '+Math.round(r*100)+'%'},t=>{st=t;msg.textContent=t});
     const name=f.name.replace(/\.[^.]+$/,'')+'.'+fmt,li=dl(b,name,false,kb(b.size));
     if(fmt!=='gif'){const pb=document.createElement('button');pb.textContent='Play';pb.onclick=()=>ingest([{file:new File([b],name,{type:MIME[fmt]}),path:name}]);li.insertBefore(pb,li.lastChild)}
     out.appendChild(li);msg.textContent='Done.';
