@@ -15,7 +15,41 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Sego
 body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(40vmax 40vmax at 10% 12%,var(--orb1),transparent 62%),radial-gradient(38vmax 38vmax at 92% 20%,var(--orb2),transparent 60%),radial-gradient(45vmax 45vmax at 70% 100%,var(--orb3),transparent 62%)}
 .glass{background:var(--glass);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);border:1px solid var(--line);box-shadow:var(--sh),inset 0 1px 0 rgba(255,255,255,.35)}
 header{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 22px;border-radius:999px;flex-wrap:wrap}
-.logo{font-weight:700;font-size:1.1rem;letter-spacing:-.02em;margin-right:auto}
+.logo{font-weight:700;font-size:1.1rem;letter-spacing:-.02em}
+nav{display:flex;gap:2px;margin-right:auto;margin-left:12px;flex-wrap:wrap}
+nav a{padding:8px 14px;border-radius:999px;font-size:.9rem;font-weight:500;color:var(--tx);text-decoration:none}
+nav a:hover{background:var(--fill)}
+nav a[aria-current=page]{background:var(--fillh)}
+nav a:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+.page{flex:1;overflow:auto;display:none;min-height:0;padding:6px 4px 20px}
+body[data-view=home] #vHome,body[data-view=image] #vImg,body[data-view=video] #vVid{display:block}
+body:not([data-view=player]) main,body:not([data-view=player]) .pbtn{display:none}
+.wrap{max-width:900px;margin:0 auto}
+.page h1{font-size:clamp(1.7rem,4vw,2.5rem);letter-spacing:-.025em;margin:18px 0 6px}
+.page h3{margin:26px 0 8px;font-size:1.05rem}
+.sub{color:var(--mute);line-height:1.6;margin:0 0 18px;max-width:60ch}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:20px 22px;border-radius:22px;background:var(--glass);border:1px solid var(--line);box-shadow:var(--sh)}
+.tile:hover{background:var(--glass);filter:brightness(1.05)}
+.tile b{font-size:1.05rem}.tile span{color:var(--mute);font-size:.85rem;line-height:1.5;font-weight:400}
+.panel{border-radius:var(--r);padding:20px 22px;display:grid;gap:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:.82rem;color:var(--mute)}
+select,input[type=number]{font:inherit;font-size:.9rem;color:var(--tx);background:var(--fill);border:0;border-radius:12px;padding:9px 12px}
+label.chk{display:flex;align-items:center;gap:8px;font-size:.9rem}
+progress{width:100%;height:8px;accent-color:var(--ac)}
+.res{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.res li{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:16px;background:var(--fill);font-size:.85rem}
+.res img{width:44px;height:44px;object-fit:cover;border-radius:8px}
+.res .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.res a{color:#fff;background:var(--ac);padding:7px 14px;border-radius:999px;text-decoration:none;font-weight:600}
+.msg{color:var(--mute);font-size:.85rem;min-height:1.2em}
+#recent{list-style:none;margin:0;padding:0}
+.h2r{display:flex;align-items:center;gap:8px}.h2r h2{flex:1}
+#bMin{padding:4px 12px;margin-right:12px}
+aside.min #filter,aside.min #list,aside.min .hint{display:none}
+aside.min{align-self:flex-start;width:230px;height:auto!important}
+aside h2{display:flex;align-items:center;gap:6px}aside h2 #bMin{margin-left:auto;margin-right:-6px}
 button{font:inherit;color:var(--tx);background:var(--fill);border:0;border-radius:999px;padding:9px 18px;cursor:pointer;font-size:.9rem;font-weight:500;transition:background .15s,transform .15s}
 button:hover{background:var(--fillh)}
 button:active{transform:scale(.96)}
@@ -92,11 +126,57 @@ kbd{background:var(--fill);border-radius:6px;padding:1px 6px;font-family:inherit
 <body>
 <header class="glass">
   <div class="logo">Cinebox</div>
-  <button class="primary" id="bDir">Open USB / folder</button>
-  <button id="bFiles">Choose files</button>
-  <button id="bList" aria-pressed="false">Playlist</button>
+  <nav aria-label="Sections"><a href="#home">Home</a><a href="#player">Player</a><a href="#image">Images</a><a href="#video">Video converter</a></nav>
+  <button class="primary pbtn" id="bDir">Open USB / folder</button>
+  <button class="pbtn" id="bFiles">Choose files</button>
+  <button class="pbtn" id="bList" aria-pressed="false">Playlist (0)</button>
   <button id="bTheme" aria-label="Switch theme"></button>
 </header>
+<div class="page" id="vHome"><div class="wrap">
+  <h1>Your media, on this device.</h1>
+  <p class="sub">Play videos from a USB drive (including .mov), convert images and videos to other formats. Everything runs in your browser; nothing is uploaded.</p>
+  <div class="tiles">
+    <button class="tile" id="hOpen"><b>Play from USB / folder</b><span>Open a drive and play every video and audio file on it.</span></button>
+    <button class="tile" id="hFiles"><b>Play files</b><span>Pick .mov, .mp4, .mkv and other files to watch.</span></button>
+    <a class="tile" href="#image" style="text-decoration:none;color:inherit"><b>Convert images</b><span>Change format (PNG, JPG, WebP, AVIF) and resize.</span></a>
+    <a class="tile" href="#video" style="text-decoration:none;color:inherit"><b>Convert videos</b><span>.mov to MP4, WebM, MKV, GIF, MP3 and more.</span></a>
+  </div>
+  <div class="h2r"><h3 style="flex:1">Recently played</h3><button id="rClr">Clear</button></div>
+  <p class="sub" id="recentEmpty">Nothing played yet. Files you watch will appear here.</p>
+  <ul id="recent"></ul>
+</div></div>
+<div class="page" id="vImg"><div class="wrap">
+  <h1>Convert and resize images</h1>
+  <p class="sub">Choose one or more images, pick a format and an optional size. Leave a size box empty to keep the original; with “Keep proportions” on, the image fits inside the size you give.</p>
+  <div class="panel glass">
+    <input type="file" id="iIn" accept="image/*" multiple>
+    <div class="grid">
+      <label class="f">Format<select id="iFmt"><option value="image/png">PNG</option><option value="image/jpeg">JPG</option><option value="image/webp">WebP</option><option value="image/avif">AVIF</option></select></label>
+      <label class="f">Width (px)<input type="number" id="iW" min="1" placeholder="Original"></label>
+      <label class="f">Height (px)<input type="number" id="iH" min="1" placeholder="Original"></label>
+      <label class="f">Quality (JPG, WebP, AVIF)<input type="range" id="iQ" min="10" max="100" value="90"></label>
+    </div>
+    <label class="chk"><input type="checkbox" id="iKeep" checked> Keep proportions</label>
+    <div><button class="primary" id="iGo">Convert images</button></div>
+    <div class="msg" id="iMsg" role="status"></div>
+    <ul class="res" id="iOut"></ul>
+  </div>
+</div></div>
+<div class="page" id="vVid"><div class="wrap">
+  <h1>Convert videos</h1>
+  <p class="sub">Works with .mov, .mp4, .mkv, .avi and more. Conversion happens on this device, so long videos take time and need free memory. The converter downloads once (about 25 MB) the first time you use it.</p>
+  <div class="panel glass">
+    <input type="file" id="vIn" accept="video/*,audio/*,.mov,.mkv,.avi,.flv,.wmv,.ts,.m2ts,.mpg,.mpeg,.3gp">
+    <div class="grid">
+      <label class="f">Convert to<select id="vFmt"><option value="mp4">MP4 (H.264)</option><option value="mov">MOV</option><option value="webm">WebM</option><option value="mkv">MKV</option><option value="avi">AVI</option><option value="gif">GIF (no sound)</option><option value="mp3">MP3 (audio only)</option><option value="wav">WAV (audio only)</option></select></label>
+      <label class="f">Height<select id="vH"><option value="0">Original</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option><option value="360">360p</option></select></label>
+    </div>
+    <div><button class="primary" id="vGo">Convert video</button></div>
+    <progress id="vP" max="1" value="0" hidden></progress>
+    <div class="msg" id="vMsg" role="status"></div>
+    <ul class="res" id="vOut"></ul>
+  </div>
+</div></div>
 <main>
   <section id="stage">
     <video id="v" playsinline></video>
@@ -134,7 +214,7 @@ kbd{background:var(--fill);border-radius:6px;padding:1px 6px;font-family:inherit
     </div>
   </section>
   <aside id="side" class="glass">
-    <h2>Playlist <span id="count"></span></h2>
+    <h2>Playlist <span id="count"></span><button id="bMin" aria-label="Minimize playlist" title="Minimize / expand">–</button></h2>
     <input id="filter" type="search" placeholder="Search files" aria-label="Search files">
     <ul id="list"></ul>
     <div class="hint"><kbd>←</kbd><kbd>→</kbd> seek 10s (<kbd>Shift</kbd> = 1 min) · <kbd>↑</kbd><kbd>↓</kbd> buttons (then <kbd>←</kbd><kbd>→</kbd> + <kbd>Enter</kbd>) · <kbd>+</kbd><kbd>-</kbd> volume · <kbd>Enter</kbd> play/pause · <kbd>N</kbd>/<kbd>P</kbd> next/prev · <kbd>F</kbd> fullscreen · <kbd>C</kbd> subtitles · <kbd>A</kbd> audio track · <kbd>L</kbd> playlist · <kbd>M</kbd> mute</div>
@@ -183,7 +263,7 @@ function render(){
     if(it.sub){const s=document.createElement('small');s.textContent='CC';b.appendChild(s)}
     b.onclick=()=>play(i);li.appendChild(b);list.appendChild(li);
   });
-  $('count').textContent='('+items.length+')';
+  $('count').textContent='('+items.length+')';$('bList').textContent='Playlist ('+items.length+')';
 }
 async function srtToVtt(file){
   let t=(await file.text()).replace(/^\uFEFF/,'');
@@ -198,7 +278,7 @@ async function play(i){
   [...v.querySelectorAll('track')].forEach(t=>t.remove());
   url=URL.createObjectURL(it.file);v.src=url;pv.src=url;loaded=true;
   empty.style.display='none';ctrl.style.display='block';
-  $('title').textContent=it.name;
+  $('title').textContent=it.name;go('player');addRecent(it);
   if(it.sub){
     try{
       subUrl=URL.createObjectURL(new Blob([await srtToVtt(it.sub)],{type:'text/vtt'}));
@@ -215,9 +295,15 @@ function setSub(){
   if(tr)tr.mode=subOn?'showing':'hidden';
   $('bSub').textContent=tr?(subOn?'CC on':'CC off'):'No CC';
 }
-v.addEventListener('error',()=>{
-  say('This browser can’t decode “'+(items[cur]?items[cur].name:'file')+'” (unsupported codec). Skipping to the next file. Chrome or Edge on a PC plays the most formats.',6000);
-  if(cur<items.length-1)setTimeout(()=>play(cur+1),2500);
+v.addEventListener('error',async()=>{
+  const it=items[cur];if(!it)return;
+  if(it.conv){say('Can’t play “'+it.name+'” even after converting. Skipping to the next file.',5000);if(cur<items.length-1)setTimeout(()=>play(cur+1),2500);return}
+  it.conv=1;const aud=/\.(mp3|m4a|wav|flac|aac|opus|oga|wma|weba)$/i.test(it.name),fm=aud?'mp3':'mp4';
+  try{
+    say('This browser can’t play “'+it.name+'” directly. Converting it…',120000);
+    const b=await conv(it.file,fm,0,r=>say('Converting “'+it.name+'” to '+fm.toUpperCase()+'… '+Math.round(r*100)+'%',120000));
+    it.file=new File([b],it.name.replace(/\.[^.]+$/,'')+'.'+fm,{type:MIME[fm]});it.name=it.file.name;toast.style.display='none';play(cur);
+  }catch(e){say('Couldn’t play “'+it.name+'”: '+e.message,7000);if(cur<items.length-1)setTimeout(()=>play(cur+1),3000)}
 });
 v.addEventListener('ended',()=>{if(cur<items.length-1)play(cur+1)});
 
@@ -359,6 +445,7 @@ function foc(el){if(el){try{el.focus({focusVisible:true})}catch(e){el.focus()}}}
 function move(arr,cur,d){foc(arr[(arr.indexOf(cur)+d+arr.length)%arr.length])}
 const firstItem=()=>side.classList.contains('open')&&(list.querySelector('.now')||list.querySelector('.item'));
 document.addEventListener('keydown',e=>{
+  if(document.body.dataset.view!=='player')return;
   if(e.target.id==='filter'){
     if(e.key==='ArrowDown'){e.preventDefault();foc(list.querySelector('.item'))}
     else if(e.key==='Escape')e.target.blur();
@@ -411,6 +498,101 @@ document.addEventListener('keydown',e=>{
   wake();
 });
 foc($('bDir2'));
+// ---- Views, recents, playlist minimize
+const VIEWS=['home','player','image','video'];
+function go(n){
+  if(!VIEWS.includes(n))n='home';
+  if(n!=='player'&&!v.paused)v.pause();
+  document.body.dataset.view=n;
+  document.querySelectorAll('nav a').forEach(a=>a.getAttribute('href')==='#'+n?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current'));
+  if(location.hash!=='#'+n){try{history.replaceState(null,'','#'+n)}catch(e){try{location.hash=n}catch(e2){}}}
+  if(n==='home')renderHome();
+  if(n==='player'&&!loaded)foc($('bDir2'));
+}
+addEventListener('hashchange',()=>go(location.hash.slice(1)));
+document.addEventListener('click',e=>{const l=e.target.closest('a[href^="#"]');if(l){e.preventDefault();go(l.getAttribute('href').slice(1))}});
+const RK='cb-recent';
+const getR=()=>{try{return JSON.parse(localStorage.getItem(RK))||[]}catch(e){return[]}};
+function addRecent(it){const r=getR().filter(x=>x.p!==it.path);r.unshift({n:it.name,p:it.path,t:Date.now()});try{localStorage.setItem(RK,JSON.stringify(r.slice(0,12)))}catch(e){}}
+function renderHome(){
+  const ul=$('recent'),r=getR();ul.innerHTML='';$('recentEmpty').style.display=r.length?'none':'block';
+  r.forEach(x=>{
+    const li=document.createElement('li'),b=document.createElement('button'),sm=document.createElement('small');
+    b.className='item';b.textContent=x.n;sm.textContent=new Date(x.t).toLocaleDateString(undefined,{day:'numeric',month:'short'});b.appendChild(sm);
+    b.onclick=()=>{const i=items.findIndex(m=>m.path===x.p);if(i>=0)play(i);else{say('Choose “'+x.n+'” to play it again.',5000);$('fFiles').click()}};
+    li.appendChild(b);ul.appendChild(li);
+  });
+}
+$('rClr').onclick=()=>{try{localStorage.removeItem(RK)}catch(e){}renderHome()};
+$('hOpen').onclick=openDir;$('hFiles').onclick=()=>$('fFiles').click();
+$('bMin').onclick=()=>{const m=side.classList.toggle('min');$('bMin').textContent=m?'+':'–';$('bMin').setAttribute('aria-label',m?'Expand playlist':'Minimize playlist')};
+
+// ---- Image converter (canvas)
+const dl=(blob,name,thumb,info)=>{
+  const li=document.createElement('li'),u=URL.createObjectURL(blob);
+  if(thumb){const im=new Image();im.src=u;im.alt='';li.appendChild(im)}
+  const n=document.createElement('span');n.className='nm';n.textContent=name+(info?' · '+info:'');li.appendChild(n);
+  const a=document.createElement('a');a.href=u;a.download=name;a.textContent='Download';li.appendChild(a);return li;
+};
+const kb=n=>n>1048576?(n/1048576).toFixed(1)+' MB':Math.round(n/1024)+' KB';
+$('iGo').onclick=async()=>{
+  const fs=[...$('iIn').files],out=$('iOut'),msg=$('iMsg');
+  if(!fs.length){msg.textContent='Choose at least one image first.';return}
+  const fmt=$('iFmt').value,ext=fmt.split('/')[1].replace('jpeg','jpg'),q=$('iQ').value/100,W=+$('iW').value||0,H=+$('iH').value||0,keep=$('iKeep').checked;
+  out.innerHTML='';msg.textContent='Converting…';let ok=0;
+  for(const f of fs){
+    try{
+      const bm=await createImageBitmap(f);let w=bm.width,h=bm.height;
+      if(W||H){if(keep||!(W&&H)){const k=Math.min(W?W/w:1e9,H?H/h:1e9);w=Math.max(1,Math.round(w*k));h=Math.max(1,Math.round(h*k))}else{w=W;h=H}}
+      const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+      if(fmt==='image/jpeg'){x.fillStyle='#fff';x.fillRect(0,0,w,h)}
+      x.imageSmoothingQuality='high';x.drawImage(bm,0,0,w,h);
+      const b=await new Promise(r=>c.toBlob(r,fmt,q));
+      if(!b||b.type!==fmt)throw new Error('this browser can’t save '+ext.toUpperCase()+' files');
+      out.appendChild(dl(b,f.name.replace(/\.[^.]+$/,'')+'.'+ext,true,w+'×'+h+', '+kb(b.size)));ok++;
+    }catch(e){const li=document.createElement('li');li.textContent='“'+f.name+'”: '+(e.message||'couldn’t read this image')+'.';out.appendChild(li)}
+  }
+  msg.textContent=ok?ok+' of '+fs.length+' converted.':'Nothing was converted.';
+};
+
+// ---- Video converter (ffmpeg.wasm, loaded on first use)
+const MIME={mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska',avi:'video/x-msvideo',gif:'image/gif',mp3:'audio/mpeg',wav:'audio/wav'};
+const H264=['-c:v','libx264','-preset','ultrafast','-crf','26','-pix_fmt','yuv420p','-c:a','aac'];
+const ARGS={mp4:[...H264,'-movflags','+faststart'],mov:H264,mkv:H264,webm:['-c:v','libvpx','-b:v','1M','-deadline','realtime','-cpu-used','5','-c:a','libvorbis'],avi:['-c:v','mpeg4','-q:v','5','-c:a','libmp3lame'],gif:['-an'],mp3:['-vn','-c:a','libmp3lame','-q:a','2'],wav:['-vn']};
+let ffP=null;
+function loadFF(){
+  if(ffP)return ffP;
+  ffP=new Promise((res,rej)=>{
+    if(!self.crossOriginIsolated){ffP=null;return rej(new Error('the converter needs the updated vercel.json headers (cross-origin isolation). Redeploy with the new vercel.json'))}
+    const s=document.createElement('script');s.crossOrigin='anonymous';s.src='https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+    s.onload=async()=>{try{const f=FFmpeg.createFFmpeg({corePath:'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',log:false});await f.load();res(f)}catch(e){ffP=null;rej(e)}};
+    s.onerror=()=>{ffP=null;rej(new Error('couldn’t download the converter. Check your internet connection'))};
+    document.head.appendChild(s);
+  });
+  return ffP;
+}
+async function conv(file,fmt,hh,prog){
+  const f=await loadFF(),ext=((file.name.match(/\.([a-z0-9]+)$/i)||[])[1]||'mp4').toLowerCase(),i='in.'+ext,o='out.'+fmt;
+  f.setProgress(({ratio})=>prog&&prog(Math.max(0,Math.min(1,ratio||0))));
+  f.FS('writeFile',i,await FFmpeg.fetchFile(file));
+  const vf=[];if(fmt==='gif')vf.push('fps=12');if(hh&&fmt!=='mp3'&&fmt!=='wav')vf.push('scale=-2:'+hh);
+  try{await f.run('-i',i,...(vf.length?['-vf',vf.join(',')]:[]),...ARGS[fmt],o);return new Blob([f.FS('readFile',o).buffer],{type:MIME[fmt]})}
+  finally{try{f.FS('unlink',i);f.FS('unlink',o)}catch(e){}}
+}
+$('vGo').onclick=async()=>{
+  const f=$('vIn').files[0],msg=$('vMsg'),pr=$('vP'),out=$('vOut'),btn=$('vGo');
+  if(!f){msg.textContent='Choose a video first.';return}
+  const fmt=$('vFmt').value;out.innerHTML='';btn.disabled=true;pr.hidden=false;pr.value=0;msg.textContent='Loading converter…';
+  try{
+    const b=await conv(f,fmt,+$('vH').value,r=>{pr.value=r;msg.textContent='Converting… '+Math.round(r*100)+'%'});
+    const name=f.name.replace(/\.[^.]+$/,'')+'.'+fmt,li=dl(b,name,false,kb(b.size));
+    if(fmt!=='gif'){const pb=document.createElement('button');pb.textContent='Play';pb.onclick=()=>ingest([{file:new File([b],name,{type:MIME[fmt]}),path:name}]);li.insertBefore(pb,li.lastChild)}
+    out.appendChild(li);msg.textContent='Done.';
+  }catch(e){msg.textContent='Couldn’t convert: '+(e.message||e)+'.'}
+  btn.disabled=false;pr.hidden=true;
+};
+go(location.hash.slice(1));
+
 // Icons, volume fill and theme
 const VOL='<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9zM16.5 12a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
 const MUTE='<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9zM16 9.4l1.4-1.4 2.1 2.1L21.6 8 23 9.4l-2.1 2.1L23 13.6 21.6 15l-2.1-2.1L17.4 15 16 13.6l2.1-2.1z"/></svg>';
