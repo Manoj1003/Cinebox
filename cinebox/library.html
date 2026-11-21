@@ -7,6 +7,7 @@
 <style>
 :root{--tx:#1d1d1f;--mute:rgba(60,60,67,.62);--bg:#f5f5f7;--card:#fff;--line:rgba(0,0,0,.09);--fill:rgba(120,120,128,.14);--ac:#007aff;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root{--tx:#f5f5f7;--mute:rgba(235,235,245,.6);--bg:#000;--card:#1c1c1e;--line:rgba(255,255,255,.12);--fill:rgba(120,120,128,.32);--ac:#0a84ff;color-scheme:dark}}
+[hidden]{display:none!important}
 *,*::before,*::after{box-sizing:inherit}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx);padding:14px}
 .wrap{max-width:900px;margin:0 auto}
@@ -19,6 +20,7 @@ button.primary{background:var(--ac);color:#fff}
 button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 progress{width:100%}
 .msg{color:var(--mute);font-size:.9rem;min-height:1.2em;overflow-wrap:anywhere}
+iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:16px;background:#000;margin-bottom:14px}
 video{width:100%;max-height:70vh;background:#000;border-radius:16px;margin-bottom:14px}
 ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 li{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px}
@@ -30,7 +32,7 @@ li .n{flex:1;min-width:180px;overflow-wrap:anywhere}li small{display:block;color
   <a class="back" href="/">← Cinebox</a>
   <h1>My library</h1>
   <p class="sub">Upload videos from any device into your own Google Drive and watch them from any other device. Up to 5 GB per file. Files are deleted automatically 30 days after upload.</p>
-  <div class="panel" id="login">
+  <div class="panel" id="login" hidden>
     <div><button class="primary" id="sign">Sign in with Google</button></div>
     <div class="msg" id="lmsg" role="status"></div>
   </div>
@@ -41,26 +43,24 @@ li .n{flex:1;min-width:180px;overflow-wrap:anywhere}li small{display:block;color
       <div class="msg" id="msg" role="status"></div>
     </div>
     <video id="pl" controls playsinline hidden></video>
-    <h3>Your files</h3>
+    <iframe id="dpl" allow="autoplay; fullscreen" allowfullscreen hidden title="Google Drive player"></iframe>
+    <div style="display:flex;align-items:center"><h3 style="flex:1">Your files</h3><button id="out">Sign out</button></div>
     <p class="sub" id="empty">No files yet.</p>
     <ul id="list"></ul>
   </div>
 </div>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
-const CLIENT_ID='186403896044-ue871s3sdv3abrirf6bnhmicepq5la3e.apps.googleusercontent.com';
 const MAX=5*1024**3,CHUNK=32*1024*1024,DAYS=30,DAY=864e5,$=id=>document.getElementById(id);
-let tok='',exp=0,client;
+let tok='',exp=0;
 const fmt=n=>n>=1e9?(n/1e9).toFixed(2)+' GB':(n/1e6).toFixed(1)+' MB';
-function initClient(){client=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:'https://www.googleapis.com/auth/drive.file',callback:()=>{}})}
-function getTok(){return new Promise((ok,no)=>{
-  if(tok&&Date.now()<exp-60000)return ok(tok);
-  if(!window.google||!client){try{initClient()}catch(e){return no(new Error('Google sign-in is still loading, try again'))}}
-  client.callback=r=>{if(r.error)return no(new Error(r.error));tok=r.access_token;exp=Date.now()+r.expires_in*1000;ok(tok)};
-  client.error_callback=e=>no(new Error((e&&e.type)||'Sign-in cancelled'));
-  client.requestAccessToken({prompt:''});
-})}
-async function g(url,opt={}){const t=await getTok();const r=await fetch(url,{...opt,headers:{Authorization:'Bearer '+t,...(opt.headers||{})}});if(!r.ok)throw new Error('Google Drive error '+r.status);return r}
+async function getTok(){
+  if(tok&&Date.now()<exp-60000)return tok;
+  const r=await fetch('/api/token',{method:'POST'});
+  if(!r.ok)throw new Error('signin');
+  const j=await r.json();tok=j.token;exp=Date.now()+j.expires_in*1000;return tok;
+}
+const vtype=(n,m)=>{const e=(n.split('.').pop()||'').toLowerCase();return({mov:'video/mp4',m4v:'video/mp4',mp4:'video/mp4',mkv:'video/x-matroska',avi:'video/x-msvideo',webm:'video/webm',mp3:'audio/mpeg',m4a:'audio/mp4'})[e]||m||'video/mp4'};
+async function g(url,opt={},retry=true){const t=await getTok();const r=await fetch(url,{...opt,headers:{Authorization:'Bearer '+t,...(opt.headers||{})}});if(r.status===401&&retry){tok='';return g(url,opt,false)}if(!r.ok)throw new Error('Google Drive error '+r.status);return r}
 function put(url,blob,s,e,total,onp){return new Promise((ok,no)=>{
   const x=new XMLHttpRequest();x.open('PUT',url);x.setRequestHeader('Content-Range','bytes '+s+'-'+(e-1)+'/'+total);
   x.upload.onprogress=ev=>onp(ev.loaded);
@@ -85,11 +85,16 @@ async function upload(file,i,n){
   }
   p.hidden=true;
 }
+function useDrive(f,why){
+  const pl=$('pl');pl.pause();pl.removeAttribute('src');pl.load();pl.hidden=true;
+  const fr=$('dpl');fr.hidden=false;fr.src='https://drive.google.com/file/d/'+f.id+'/preview';fr.scrollIntoView({block:'nearest'});
+  $('msg').textContent=(why?why+' ':'')+'Playing with the Google Drive player. Right after an upload it may say "processing" for a few minutes. You must be signed in to the same Google account in this browser.';
+}
 async function refresh(){
   const q=encodeURIComponent("appProperties has { key='cinebox' and value='1' } and trashed=false");
   let files;
   try{files=(await(await g('https://www.googleapis.com/drive/v3/files?q='+q+'&orderBy=createdTime%20desc&pageSize=200&fields=files(id,name,size,createdTime,mimeType)')).json()).files||[]}
-  catch(e){$('msg').textContent=e.message;return}
+  catch(e){if(e.message==='signin'){$('app').hidden=true;$('login').hidden=false}else $('msg').textContent=e.message;return}
   const old=files.filter(f=>Date.now()-new Date(f.createdTime)>DAYS*DAY);
   for(const f of old)await g('https://www.googleapis.com/drive/v3/files/'+f.id,{method:'DELETE'}).catch(()=>{});
   files=files.filter(f=>!old.includes(f));
@@ -98,20 +103,34 @@ async function refresh(){
     const li=document.createElement('li'),nm=document.createElement('div'),sm=document.createElement('small');
     const d=Math.max(0,Math.ceil((new Date(f.createdTime).getTime()+DAYS*DAY-Date.now())/DAY));
     nm.className='n';nm.textContent=f.name;sm.textContent=fmt(+f.size||0)+' · '+d+' day'+(d===1?'':'s')+' left';nm.appendChild(sm);
-    const mime=f.mimeType||'video/mp4',base='/drive/'+f.id+'?type='+encodeURIComponent(mime);
+    const mime=vtype(f.name,f.mimeType),base='/drive/'+f.id+'?size='+(+f.size||0)+'&type='+encodeURIComponent(mime);
     const play=document.createElement('button');play.className='primary';play.textContent='Play';
     play.onclick=async()=>{try{
       await getTok();await navigator.serviceWorker.ready;
       if(!navigator.serviceWorker.controller)await new Promise(r=>{navigator.serviceWorker.addEventListener('controllerchange',r,{once:true});setTimeout(r,1500)});
-      const pl=$('pl');pl.hidden=false;pl.src=base;pl.play().catch(()=>{});pl.scrollIntoView({block:'nearest'});
-    }catch(e){$('msg').textContent=e.message}};
+    }catch(e){if(e.message==='signin'){$('msg').textContent='Please sign in again.';return}}
+      const pl=$('pl');$('dpl').hidden=true;$('dpl').removeAttribute('src');$('msg').textContent='';pl.hidden=false;
+      let ok=false;const tm=setTimeout(()=>{if(!ok)useDrive(f,'This file did not start in time.')},12000);
+      pl.onloadedmetadata=()=>{ok=true;clearTimeout(tm)};
+      pl.onerror=()=>{clearTimeout(tm);useDrive(f,'Your browser cannot play this format directly.')};
+      pl.src=base;pl.play().catch(()=>{});pl.scrollIntoView({block:'nearest'});
+    };
+    const dp=document.createElement('button');dp.textContent='Play in Drive';dp.title='Uses Google Drive player (most formats)';dp.onclick=()=>useDrive(f,'');
     const dl=document.createElement('a');dl.className='btn';dl.textContent='Download';dl.href=base+'&dl=1&name='+encodeURIComponent(f.name);
     const del=document.createElement('button');del.textContent='Delete';
-    del.onclick=async()=>{if(confirm('Delete '+f.name+'?')){await g('https://www.googleapis.com/drive/v3/files/'+f.id,{method:'DELETE'}).catch(e=>$('msg').textContent=e.message);refresh()}};
-    li.append(nm,play,dl,del);ul.appendChild(li);
+    del.onclick=async()=>{if(!confirm('Delete "'+f.name+'" from Google Drive too?'))return;
+      try{await g('https://www.googleapis.com/drive/v3/files/'+f.id,{method:'DELETE'});$('pl').pause();$('dpl').hidden=true;$('dpl').removeAttribute('src');$('msg').textContent='Deleted "'+f.name+'" from Cinebox and Google Drive.'}
+      catch(e){if(!/404/.test(e.message)){$('msg').textContent='Delete failed: '+e.message;return}}
+      refresh()};
+    li.append(nm,play,dp,dl,del);ul.appendChild(li);
   });
 }
-$('sign').onclick=async()=>{try{await getTok();$('login').hidden=true;$('app').hidden=false;refresh()}catch(e){$('lmsg').textContent=e.message}};
+$('sign').onclick=()=>{location.href='/api/start'};
+$('out').onclick=async()=>{await fetch('/api/logout',{method:'POST'});location.reload()};
+(async()=>{
+  if(new URLSearchParams(location.search).get('err'))$('lmsg').textContent='Sign-in did not finish. Please try again.';
+  try{await getTok();$('app').hidden=false;refresh()}catch(e){$('login').hidden=false}
+})();
 $('inp').onchange=async e=>{
   const fs=[...e.target.files];e.target.value='';
   for(let i=0;i<fs.length;i++){try{await upload(fs[i],i,fs.length)}catch(err){$('prog').hidden=true;$('msg').textContent='Upload failed: '+err.message;return}}

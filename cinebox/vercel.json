@@ -1,15 +1,57 @@
 {
   "cleanUrls": true,
   "headers": [
-    { "source": "/((?!library|sw\\.js).*)", "headers": [
-      { "key": "X-Content-Type-Options", "value": "nosniff" },
-      { "key": "Permissions-Policy", "value": "fullscreen=(self)" },
-      { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
-      { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" }
-    ]},
-    { "source": "/(library|sw\\.js)", "headers": [
-      { "key": "X-Content-Type-Options", "value": "nosniff" },
-      { "key": "Cache-Control", "value": "no-cache" }
-    ]}
+    {
+      "source": "/((?!library|sw\\.js).*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "fullscreen=(self)"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "require-corp"
+        }
+      ]
+    },
+    {
+      "source": "/(library|sw\\.js)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/start",
+      "destination": "/api/auth?a=start"
+    },
+    {
+      "source": "/api/callback",
+      "destination": "/api/auth?a=callback"
+    },
+    {
+      "source": "/api/token",
+      "destination": "/api/auth?a=token"
+    },
+    {
+      "source": "/api/logout",
+      "destination": "/api/auth?a=logout"
+    }
   ]
 }
