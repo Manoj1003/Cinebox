@@ -134,7 +134,7 @@ kbd{background:var(--fill);border-radius:6px;padding:1px 6px;font-family:inherit
 <body>
 <header class="glass">
   <div class="logo">Cinebox</div>
-  <nav aria-label="Sections"><a href="#home">Home</a><a href="#player">Player</a><a href="#image">Images</a><a href="#video">Video converter</a></nav>
+  <nav aria-label="Sections"><a href="#home">Home</a><a href="/library">My library</a><a href="#player">Player</a><a href="#image">Images</a><a href="#video">Video converter</a></nav>
   <button class="primary pbtn" id="bDir">Open USB / folder</button>
   <button class="pbtn" id="bFiles">Choose files</button>
   <button class="pbtn" id="bList" aria-pressed="false">Playlist (0)</button>
@@ -149,6 +149,7 @@ kbd{background:var(--fill);border-radius:6px;padding:1px 6px;font-family:inherit
     <a class="tile" href="#image" style="text-decoration:none;color:inherit"><b>Convert images</b><span>Change format (PNG, JPG, WebP, AVIF) and resize.</span></a>
     <a class="tile" href="#video" style="text-decoration:none;color:inherit"><b>Convert videos</b><span>.mov to MP4, WebM, MKV, GIF, MP3 and more.</span></a>
   </div>
+  <a class="tile" href="/library" style="text-decoration:none;color:inherit;margin-top:12px"><b>My library (Google Drive)</b><span>Upload up to 5 GB from any device and watch it anywhere for 30 days.</span></a>
   <div class="h2r"><h3 style="flex:1">Recently played</h3><button id="rClr">Clear</button></div>
   <p class="sub" id="recentEmpty">Nothing played yet. Files you watch will appear here.</p>
   <ul id="recent"></ul>
