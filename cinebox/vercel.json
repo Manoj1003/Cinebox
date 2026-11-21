@@ -2,7 +2,7 @@
   "cleanUrls": true,
   "headers": [
     {
-      "source": "/((?!library|sw\\.js).*)",
+      "source": "/(.*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -23,12 +23,8 @@
       ]
     },
     {
-      "source": "/(library|sw\\.js)",
+      "source": "/sw.js",
       "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
         {
           "key": "Cache-Control",
           "value": "no-cache"

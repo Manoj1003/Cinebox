@@ -22,7 +22,7 @@ nav a:hover{background:var(--fill)}
 nav a[aria-current=page]{background:var(--fillh)}
 nav a:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 .page{flex:1;overflow:auto;display:none;min-height:0;padding:6px 4px 20px}
-body[data-view=home] #vHome,body[data-view=image] #vImg,body[data-view=video] #vVid{display:block}
+body[data-view=home] #vHome,body[data-view=image] #vImg,body[data-view=video] #vVid,body[data-view=library] #vLib{display:block}
 body:not([data-view=player]) main,body:not([data-view=player]) .pbtn{display:none}
 .wrap{max-width:900px;margin:0 auto}
 .page h1{font-size:clamp(1.7rem,4vw,2.5rem);letter-spacing:-.025em;margin:18px 0 6px}
@@ -129,12 +129,17 @@ kbd{background:var(--fill);border-radius:6px;padding:1px 6px;font-family:inherit
 @media (max-width:760px){body{padding:8px;gap:8px}aside{position:absolute;inset:auto 8px 8px 8px;width:auto;max-width:none;height:55%;z-index:7}#vol,#bOut{display:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 @supports not (backdrop-filter:blur(1px)){.glass{background:var(--bg)}}
+[hidden]{display:none!important}
+#gList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+#gList li{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;border-radius:16px;background:var(--fill)}
+#gList .n{flex:1;min-width:180px;overflow-wrap:anywhere}#gList small{display:block;color:var(--mute)}
+#gList a{color:var(--tx);background:var(--fillh);padding:8px 14px;border-radius:999px;text-decoration:none;font-size:.9rem}
 </style>
 </head>
 <body>
 <header class="glass">
   <div class="logo">Cinebox</div>
-  <nav aria-label="Sections"><a href="#home">Home</a><a href="/library">My library</a><a href="#player">Player</a><a href="#image">Images</a><a href="#video">Video converter</a></nav>
+  <nav aria-label="Sections"><a href="#home">Home</a><a href="#library">My library</a><a href="#player">Player</a><a href="#image">Images</a><a href="#video">Video converter</a></nav>
   <button class="primary pbtn" id="bDir">Open USB / folder</button>
   <button class="pbtn" id="bFiles">Choose files</button>
   <button class="pbtn" id="bList" aria-pressed="false">Playlist (0)</button>
@@ -149,7 +154,7 @@ kbd{background:var(--fill);border-radius:6px;padding:1px 6px;font-family:inherit
     <a class="tile" href="#image" style="text-decoration:none;color:inherit"><b>Convert images</b><span>Change format (PNG, JPG, WebP, AVIF) and resize.</span></a>
     <a class="tile" href="#video" style="text-decoration:none;color:inherit"><b>Convert videos</b><span>.mov to MP4, WebM, MKV, GIF, MP3 and more.</span></a>
   </div>
-  <a class="tile" href="/library" style="text-decoration:none;color:inherit;margin-top:12px"><b>My library (Google Drive)</b><span>Upload up to 5 GB from any device and watch it anywhere for 30 days.</span></a>
+  <a class="tile" href="#library" style="text-decoration:none;color:inherit;margin-top:12px"><b>My library (Google Drive)</b><span>Upload up to 5 GB from any device, play it here anywhere. Deleted after 30 days.</span></a>
   <div class="h2r"><h3 style="flex:1">Recently played</h3><button id="rClr">Clear</button></div>
   <p class="sub" id="recentEmpty">Nothing played yet. Files you watch will appear here.</p>
   <ul id="recent"></ul>
@@ -184,6 +189,24 @@ kbd{background:var(--fill);border-radius:6px;padding:1px 6px;font-family:inherit
     <progress id="vP" max="1" value="0" hidden></progress>
     <div class="msg" id="vMsg" role="status"></div>
     <ul class="res" id="vOut"></ul>
+  </div>
+</div></div>
+<div class="page" id="vLib"><div class="wrap">
+  <h1>My library</h1>
+  <p class="sub">Upload videos from any device to your own Google Drive and play them here in the Cinebox player. Up to 5 GB per file. Files are deleted automatically 30 days after upload.</p>
+  <div class="panel glass" id="gLogin" hidden>
+    <div><button class="primary" id="gSign">Sign in with Google</button></div>
+    <div class="msg" id="gLMsg" role="status"></div>
+  </div>
+  <div id="gApp" hidden>
+    <div class="panel glass">
+      <input type="file" id="gIn" accept="video/*,audio/*,.mov,.mkv,.avi,.mp4,.webm,.m4v,.ts,.wmv,.flv" multiple>
+      <progress id="gP" max="1" value="0" hidden></progress>
+      <div class="msg" id="gMsg" role="status"></div>
+    </div>
+    <div class="h2r"><h3 style="flex:1">Your files</h3><button id="gOut">Sign out</button></div>
+    <p class="sub" id="gEmpty">No files yet.</p>
+    <ul id="gList"></ul>
   </div>
 </div></div>
 <main>
@@ -232,6 +255,12 @@ kbd{background:var(--fill);border-radius:6px;padding:1px 6px;font-family:inherit
 <input type="file" id="fFiles" multiple accept="video/*,audio/*,.mkv,.avi,.mov,.flv,.wmv,.ts,.m2ts,.mpg,.mpeg,.3gp,.srt,.vtt" hidden>
 <input type="file" id="fDir" webkitdirectory multiple hidden>
 <script>
+(function(){var h=location.hash;if(!/[#&](access_token|error)=/.test(h))return;
+var p=new URLSearchParams(h.slice(1)),st=null;try{st=sessionStorage.getItem('cb-st')}catch(e){}
+try{if(p.get('access_token')&&p.get('state')===st){localStorage.setItem('cb-gd',JSON.stringify({t:p.get('access_token'),e:Date.now()+(+p.get('expires_in')||3600)*1000}));localStorage.setItem('cb-gd-ever','1');sessionStorage.removeItem('cb-err')}else if(p.get('error')){sessionStorage.setItem('cb-err',p.get('error'))}}catch(e){}
+try{history.replaceState(null,'','#library')}catch(e){location.hash='library'}})();
+</script>
+<script>
 (function(){
 const $=id=>document.getElementById(id);
 const v=$('v'),pv=$('pv'),ctrl=$('ctrl'),empty=$('empty'),side=$('side'),list=$('list'),toast=$('toast'),stage=$('stage'),big=$('big');
@@ -279,13 +308,14 @@ async function srtToVtt(file){
   if(/^WEBVTT/.test(t))return t;
   return 'WEBVTT\n\n'+t.replace(/\r/g,'').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g,'$1.$2');
 }
-async function play(i){
+async function play(i,t0){
   if(i<0||i>=items.length)return;
   cur=i;const it=items[i];
-  if(url)URL.revokeObjectURL(url);
+  if(url)URL.revokeObjectURL(url);axOff();
   if(subUrl){URL.revokeObjectURL(subUrl);subUrl=null}
   [...v.querySelectorAll('track')].forEach(t=>t.remove());
-  url=URL.createObjectURL(it.file);v.src=url;pv.src=url;loaded=true;
+  if(it.drive){url=null;v.src=drvUrl(it.drive);pv.removeAttribute('src')}else{url=URL.createObjectURL(it.file);v.src=url;pv.src=url}
+  if(t0)v.addEventListener('loadedmetadata',()=>{v.currentTime=t0},{once:true});loaded=true;
   empty.style.display='none';ctrl.style.display='block';
   $('title').textContent=it.name;go('player');addRecent(it);
   if(it.sub){
@@ -360,7 +390,7 @@ const skip=s=>{
 };
 const vol=d=>{v.volume=Math.max(0,Math.min(1,v.volume+d));$('vol').value=v.volume;say('Volume '+Math.round(v.volume*100)+'%',1000)};
 const fs=()=>document.fullscreenElement?document.exitFullscreen():(stage.requestFullscreen||stage.webkitRequestFullscreen||(()=>{})).call(stage);
-const mute=()=>{v.muted=!v.muted};
+const mute=()=>{if(AX.on)AX.aud.muted=!AX.aud.muted;else v.muted=!v.muted};
 const subs=()=>{if(!v.textTracks.length){say('No subtitle file with the same name was found next to this video.');return}subOn=!subOn;setSub()};
 const spd=()=>{si=(si+1)%speeds.length;v.playbackRate=speeds[si];$('bSpd').textContent=speeds[si]+'×'};
 function updAud(){
@@ -369,7 +399,7 @@ function updAud(){
 }
 function cycleAud(){
   const at=v.audioTracks;
-  if(!at){say('This browser doesn’t expose multiple audio tracks. Safari supports it; in Chrome or Edge enable “Experimental Web Platform features” at chrome://flags.',7000);return}
+  if(!at){axCycle();return}
   if(at.length<2){say('This file has only one audio track.');return}
   const n=([...at].findIndex(t=>t.enabled)+1)%at.length;
   for(let j=0;j<at.length;j++)at[j].enabled=(j===n);
@@ -508,10 +538,11 @@ document.addEventListener('keydown',e=>{
 });
 foc($('bDir2'));
 // ---- Views, recents, playlist minimize
-const VIEWS=['home','player','image','video'];
+const VIEWS=['home','library','player','image','video'];
 function go(n){
   if(!VIEWS.includes(n))n='home';
   if(n!=='player'&&!v.paused)v.pause();
+  if(n==='library')libShow();
   document.body.dataset.view=n;
   document.querySelectorAll('nav a').forEach(a=>a.getAttribute('href')==='#'+n?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current'));
   if(location.hash!=='#'+n){try{history.replaceState(null,'','#'+n)}catch(e){try{location.hash=n}catch(e2){}}}
@@ -612,6 +643,149 @@ $('vGo').onclick=async()=>{
   }catch(e){msg.textContent='Couldn’t convert: '+(e.message||e)+'.'}
   btn.disabled=false;pr.hidden=true;
 };
+
+// ---- Google Drive library (sign-in by redirect, no server; files stream through sw.js)
+const GCID='PASTE_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com',GMAX=5*1024**3,GCH=32*1024*1024,GDAYS=30,GDAY=864e5,GAPI='https://www.googleapis.com/drive/v3/files';
+let GF=[];
+const gdat=()=>{try{return JSON.parse(localStorage.getItem('cb-gd'))||{}}catch(e){return{}}};
+const gtok=()=>{const d=gdat();return d.t&&d.e>Date.now()+30000?d.t:''};
+const vtype=(n,m)=>{const e=(n.split('.').pop()||'').toLowerCase();return({mov:'video/mp4',m4v:'video/mp4',mp4:'video/mp4',mkv:'video/x-matroska',avi:'video/x-msvideo',webm:'video/webm',mp3:'audio/mpeg',m4a:'audio/mp4'})[e]||m||'video/mp4'};
+const drvUrl=d=>'/drive/'+d.id+'?size='+d.size+'&type='+encodeURIComponent(d.type);
+function gsign(silent){
+  const st=Math.random().toString(36).slice(2);try{sessionStorage.setItem('cb-st',st);sessionStorage.setItem('cb-try',Date.now())}catch(e){}
+  const q={client_id:GCID,redirect_uri:location.origin+'/',response_type:'token',scope:'https://www.googleapis.com/auth/drive.file',state:st};
+  if(silent)q.prompt='none';
+  location.href='https://accounts.google.com/o/oauth2/v2/auth?'+new URLSearchParams(q);
+}
+async function g(url,opt={}){const t=gtok();if(!t)throw new Error('signin');const r=await fetch(url,{...opt,headers:{Authorization:'Bearer '+t,...(opt.headers||{})}});if(r.status===401)throw new Error('signin');if(!r.ok)throw new Error('Google Drive error '+r.status);return r}
+function libShow(){
+  if(gtok()){$('gLogin').hidden=true;$('gApp').hidden=false;glist().then(gresume);return}
+  $('gApp').hidden=true;$('gLogin').hidden=false;
+  let err='',tried=0,ever=false;try{err=sessionStorage.getItem('cb-err')||'';tried=+sessionStorage.getItem('cb-try')||0;ever=!!localStorage.getItem('cb-gd-ever')}catch(e){}
+  if(ever&&!err&&Date.now()-tried>60000){$('gLMsg').textContent='Signing you in…';gsign(true);return}
+  $('gLMsg').textContent=err&&!/interaction_required|login_required|consent_required|account_selection_required/.test(err)?'Google said: '+err:'';
+}
+async function glist(){
+  const q=encodeURIComponent("appProperties has { key='cinebox' and value='1' } and trashed=false");
+  try{
+    const fs=(await(await g(GAPI+'?q='+q+'&orderBy=createdTime%20desc&pageSize=200&fields=files(id,name,size,createdTime,mimeType)')).json()).files||[];
+    const old=fs.filter(f=>Date.now()-new Date(f.createdTime)>GDAYS*GDAY);
+    for(const f of old)await g(GAPI+'/'+f.id,{method:'DELETE'}).catch(()=>{});
+    GF=fs.filter(f=>!old.includes(f));
+  }catch(e){if(e.message==='signin')libShow();else $('gMsg').textContent=e.message;return}
+  const ul=$('gList');ul.innerHTML='';$('gEmpty').hidden=GF.length>0;
+  GF.forEach(f=>{
+    const li=document.createElement('li'),nm=document.createElement('div'),sm=document.createElement('small');
+    const d=Math.max(0,Math.ceil((new Date(f.createdTime).getTime()+GDAYS*GDAY-Date.now())/GDAY)),mb=+f.size||0;
+    nm.className='n';nm.textContent=f.name;sm.textContent=(mb>=1e9?(mb/1e9).toFixed(2)+' GB':(mb/1e6).toFixed(1)+' MB')+' · '+d+' day'+(d===1?'':'s')+' left';nm.appendChild(sm);
+    const pb=document.createElement('button');pb.className='primary';pb.textContent='Play';pb.onclick=()=>gplay(f.id);
+    const dl=document.createElement('a');dl.textContent='Download';dl.href=drvUrl({id:f.id,size:mb,type:vtype(f.name,f.mimeType)})+'&dl=1&name='+encodeURIComponent(f.name);
+    const op=document.createElement('a');op.textContent='Open in Drive';op.href='https://drive.google.com/file/d/'+f.id+'/view';op.target='_blank';op.rel='noopener';
+    const del=document.createElement('button');del.textContent='Delete';del.onclick=()=>gdel(f);
+    li.append(nm,pb,dl,op,del);ul.appendChild(li);
+  });
+}
+async function gdel(f){
+  if(!confirm('Delete "'+f.name+'" from Google Drive too?'))return;
+  try{await g(GAPI+'/'+f.id,{method:'DELETE'})}catch(e){if(!/404/.test(e.message)){$('gMsg').textContent=e.message==='signin'?'Please sign in again.':'Delete failed: '+e.message;return}}
+  const was=items[cur];items=items.filter(i=>!(i.drive&&i.drive.id===f.id));
+  if(was&&was.drive&&was.drive.id===f.id){v.pause();v.removeAttribute('src');v.load();cur=-1}else cur=items.indexOf(was);
+  render();$('gMsg').textContent='Deleted "'+f.name+'" from Cinebox and Google Drive.';glist();
+}
+async function gplay(id,t){
+  try{
+    if(!('serviceWorker' in navigator))throw new Error('This browser can’t stream from Drive. Use “Open in Drive” instead.');
+    await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;
+    if(!navigator.serviceWorker.controller)await new Promise(r=>{navigator.serviceWorker.addEventListener('controllerchange',r,{once:true});setTimeout(r,2500)});
+    if(!navigator.serviceWorker.controller)throw new Error('Reload this page once, then press Play again.');
+    if(!gtok())throw new Error('signin');
+    const di=GF.map(f=>({file:null,sub:null,name:f.name,path:'Google Drive/'+f.name,drive:{id:f.id,size:+f.size||0,type:vtype(f.name,f.mimeType)}}));
+    items=items.filter(i=>!i.drive).concat(di).sort(natural);
+    side.classList.add('open');$('bList').setAttribute('aria-pressed','true');
+    play(items.findIndex(i=>i.drive&&i.drive.id===id),t);
+  }catch(e){if(e.message==='signin')libShow();else $('gMsg').textContent=e.message}
+}
+function gresume(){let r=null;try{r=JSON.parse(sessionStorage.getItem('cb-res'));sessionStorage.removeItem('cb-res')}catch(e){}if(r)gplay(r.id,r.t)}
+function gRenew(){ // the Google token lasts about an hour: renew silently and resume where we were
+  const it=items[cur];if(!it||!it.drive||gdat().e-Date.now()>90000)return;
+  try{sessionStorage.setItem('cb-res',JSON.stringify({id:it.drive.id,t:v.currentTime}))}catch(e){}
+  say('Refreshing your Google session…',3000);gsign(true);
+}
+setInterval(()=>{if(!v.paused)gRenew()},30000);v.addEventListener('play',gRenew);
+if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='need-token'&&e.ports[0])e.ports[0].postMessage(gtok()||null)});
+function gput(url,blob,s,e,total,onp){return new Promise((ok,no)=>{const x=new XMLHttpRequest();x.open('PUT',url);x.setRequestHeader('Content-Range','bytes '+s+'-'+(e-1)+'/'+total);x.upload.onprogress=ev=>onp(ev.loaded);x.onload=()=>(x.status===308||x.status<300)?ok():no(new Error('HTTP '+x.status));x.onerror=()=>no(new Error('Network error'));x.send(blob)})}
+async function gup(file,i,n){
+  const m=$('gMsg'),p=$('gP');if(!file.size)return;
+  if(file.size>GMAX){m.textContent=file.name+' is over 5 GB.';return}
+  const t=gtok();if(!t)throw new Error('signin');
+  const type=file.type||vtype(file.name,''),pre=n>1?'('+(i+1)+'/'+n+') ':'';
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id',{method:'POST',headers:{Authorization:'Bearer '+t,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':type,'X-Upload-Content-Length':String(file.size)},body:JSON.stringify({name:file.name,mimeType:type,appProperties:{cinebox:'1'}})});
+  if(r.status===401)throw new Error('signin');
+  const loc=r.headers.get('Location');if(!r.ok||!loc)throw new Error('Could not start the upload ('+r.status+'). Is the Drive API enabled?');
+  p.hidden=false;
+  for(let s=0;s<file.size;){
+    const e=Math.min(file.size,s+GCH),blob=file.slice(s,e);
+    for(let a=0;;a++){try{await gput(loc,blob,s,e,file.size,l=>{const d=s+l;p.value=d/file.size;m.textContent=pre+file.name+': '+Math.round(100*d/file.size)+'%'});break}catch(x){if(a>=3)throw x}}
+    s=e;
+  }
+  p.hidden=true;
+}
+$('gSign').onclick=()=>{try{sessionStorage.removeItem('cb-err')}catch(e){}gsign(false)};
+$('gOut').onclick=()=>{try{localStorage.removeItem('cb-gd');localStorage.removeItem('cb-gd-ever')}catch(e){}libShow()};
+$('gIn').onchange=async e=>{
+  const fs=[...e.target.files];e.target.value='';
+  try{for(let i=0;i<fs.length;i++)await gup(fs[i],i,fs.length);$('gMsg').textContent='Upload complete.';glist()}
+  catch(err){$('gP').hidden=true;if(err.message==='signin')libShow();else $('gMsg').textContent='Upload failed: '+err.message}
+};
+
+// ---- Audio tracks in every browser: where the browser has no audioTracks (Chrome, Edge, Firefox) the chosen
+// track is extracted with ffmpeg.wasm (files up to ~1 GB) and played in sync with the muted video.
+const AX={on:false,aud:new Audio(),key:'',name:'',f:null,tracks:[],sel:0,cache:{},busy:false};
+function axOff(){if(AX.on){AX.on=false;AX.aud.pause();v.muted=false}AX.sel=0;
+  if(AX.f&&AX.name){try{AX.f.FS('unlink',AX.name)}catch(e){}}AX.key='';AX.name='';AX.tracks=[];Object.values(AX.cache).forEach(u=>URL.revokeObjectURL(u));AX.cache={};$('bAud').textContent='Audio'}
+(function(){const a=AX.aud,sync=()=>{if(!AX.on)return;if(Math.abs(a.currentTime-v.currentTime)>.3)a.currentTime=v.currentTime};
+  v.addEventListener('play',()=>{if(AX.on){sync();a.play().catch(()=>{})}});v.addEventListener('playing',()=>{if(AX.on){sync();a.play().catch(()=>{})}});
+  v.addEventListener('pause',()=>{if(AX.on)a.pause()});v.addEventListener('waiting',()=>{if(AX.on)a.pause()});
+  v.addEventListener('seeked',sync);v.addEventListener('timeupdate',sync);
+  v.addEventListener('ratechange',()=>{if(AX.on)a.playbackRate=v.playbackRate});
+  v.addEventListener('volumechange',()=>{if(AX.on)a.volume=v.volume})})();
+async function axCycle(){
+  const it=items[cur];if(!it||AX.busy)return;
+  const size=it.drive?it.drive.size:it.file.size;
+  if(size>1.2e9){say('This browser can switch audio tracks only in files under about 1 GB. Use Safari for bigger files.',7000);return}
+  AX.busy=true;
+  try{
+    const key=it.drive?it.drive.id:it.path+size;
+    if(AX.key!==key){
+      axOff();say('Reading audio tracks… the first time takes a moment.',60000);
+      const f=await loadFF(),ext=((it.name.match(/\.([a-z0-9]+)$/i)||[])[1]||'mp4').toLowerCase();
+      const data=it.drive?new Uint8Array(await(await fetch(drvUrl(it.drive))).arrayBuffer()):await FFmpeg.fetchFile(it.file);
+      f.FS('writeFile','in.'+ext,data);
+      let log='';f.setLogger(({message})=>{log+=message+'\n'});try{await f.run('-i','in.'+ext)}catch(e){}f.setLogger(()=>{});
+      const tr=[];log.split('\n').forEach(l=>{const m=/Stream #0:\d+(?:\((\w+)\))?.*?: Audio: (\w+)/.exec(l);if(m)tr.push({lang:m[1]||'',codec:m[2]})});
+      AX.f=f;AX.name='in.'+ext;AX.tracks=tr;AX.key=key;AX.sel=0;
+    }
+    const N=AX.tracks.length;
+    if(N<2){say(N?'This file has only one audio track.':'No audio track was found in this file.',3000);return}
+    const n=(AX.sel+1)%N;
+    if(n===0){AX.on=false;AX.aud.pause();v.muted=false}
+    else{
+      if(!AX.cache[n]){
+        const f=AX.f,out='a'+n+'.m4a',cp=AX.tracks[n].codec==='aac';
+        say('Preparing audio track '+(n+1)+'… this can take a few minutes for long videos.',600000);
+        f.setProgress(({ratio})=>say('Preparing audio track '+(n+1)+': '+Math.round(Math.max(0,Math.min(1,ratio||0))*100)+'%',600000));
+        await f.run('-i',AX.name,'-map','0:a:'+n,'-vn',...(cp?['-c:a','copy']:['-c:a','aac','-b:a','160k','-ac','2']),out);
+        const d=f.FS('readFile',out);try{f.FS('unlink',out)}catch(e){}
+        AX.cache[n]=URL.createObjectURL(new Blob([d.buffer],{type:'audio/mp4'}));
+      }
+      AX.aud.src=AX.cache[n];AX.aud.volume=v.volume;AX.aud.playbackRate=v.playbackRate;AX.aud.currentTime=v.currentTime;AX.on=true;v.muted=true;
+      if(!v.paused)AX.aud.play().catch(()=>{});
+    }
+    AX.sel=n;const t=AX.tracks[n];
+    $('bAud').textContent='Audio '+(n+1)+'/'+N;say('Audio track '+(n+1)+' of '+N+(t.lang?' ('+t.lang+')':'')+' – '+t.codec,3000);
+  }catch(e){say('Couldn’t switch audio: '+(e.message||e),6000)}
+  finally{AX.busy=false}
+}
 go(location.hash.slice(1));
 
 // Icons, volume fill and theme

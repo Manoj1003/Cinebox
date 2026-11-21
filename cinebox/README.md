@@ -21,9 +21,5 @@ Open your https://....vercel.app address in the TV browser, plug in the USB, pre
 
 Note: the video converter needs the COOP/COEP headers in vercel.json (already included) and an internet connection the first time, to load ffmpeg.wasm. A plain `python3 -m http.server` does not send them, so use `npx serve` or `vercel dev` locally.
 
-## My library (Google Drive) setup
-1. console.cloud.google.com > project > enable **Google Drive API**.
-2. OAuth consent screen / Audience: External, scope only `drive.file`, then **Publish app** (no review needed).
-3. Credentials > OAuth client ID (Web application). Authorized redirect URIs: `https://YOUR-SITE.vercel.app/api/callback` (and `http://localhost:3000/api/callback` for `vercel dev`).
-4. Vercel > Settings > Environment Variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET` (any long random text). Redeploy.
-Sign-in lasts a year per device. Deleting in the app deletes the file from Drive. Files older than 30 days are deleted when My library is opened.
+## My library (Google Drive)
+No server or environment variables. In Google Cloud: enable the Google Drive API, set the OAuth consent screen to External with only the `drive.file` scope and click Publish app, then create an OAuth client ID (Web application) with the authorized redirect URI `https://YOUR-SITE.vercel.app/` (include the trailing slash). Paste the Client ID into `GCID` near the top of the library code in index.html and redeploy (index.html, sw.js, vercel.json).
