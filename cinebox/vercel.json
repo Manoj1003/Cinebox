@@ -35,23 +35,5 @@
         }
       ]
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/api/start",
-      "destination": "/api/auth?a=start"
-    },
-    {
-      "source": "/api/callback",
-      "destination": "/api/auth?a=callback"
-    },
-    {
-      "source": "/api/token",
-      "destination": "/api/auth?a=token"
-    },
-    {
-      "source": "/api/logout",
-      "destination": "/api/auth?a=logout"
-    }
   ]
 }
