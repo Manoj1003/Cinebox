@@ -1,25 +1,19 @@
-# Cinebox – media player and converter
+# Cinebox – media player, cloud library and converter
 
-A static website (one file: index.html). Home page, USB/local player (with recently played), image converter/resizer and video converter. The USB player and converters run in the browser. "My library" (/library) stores videos in your own Google Drive.
+A static website (index.html + sw.js). Home with quick access to your uploads, USB/local player, image converter, video converter and "My library" (/library) which stores videos in your own Google Drive.
+
+## What's new
+- **Uploads**: original bytes (no re-encoding, no quality loss), large streaming requests, two files at once, live speed + time left, per-file Cancel and Cancel all, automatic reconnect-and-retry, screen kept awake.
+- **Home**: "Continue watching" (resumes where you stopped) and "My uploads" cards, one tap to play.
+- **Audio tracks, any size, any browser**: the player's Audio menu lists every track (language, codec, channels). Tracks are read straight out of MP4/MOV/M4V/MKV files without loading the whole file. Safari uses its native tracks. Only codecs the browser cannot decode (e.g. DTS) need the converter, limited to about 1 GB.
+- **Drive playback**: read-ahead streaming service worker (several 8 MB parts in parallel, retries, honours token expiry), buffering spinner, buffered bar.
+- **Blank picture**: if the video uses a format the browser cannot decode (HEVC / 10-bit) you get a clear message plus "Make a compatible copy" (visually lossless H.264, all audio kept).
 
 ## Run locally
-    cd cinebox
-    npx serve                        # reads vercel.json, so the video converter works
-Open the printed http://localhost address in Chrome or Edge.
+    npx serve        # reads vercel.json (COOP/COEP headers for the converter)
 
 ## Deploy on Vercel
-Option A - CLI:
-    npm i -g vercel
-    cd cinebox
-    vercel login
-    vercel            # preview
-    vercel --prod     # live (https URL)
-Option B - GitHub: push this folder to a repo, then vercel.com > Add New > Project > Import. Framework: "Other". No build command, output directory empty (root).
+Push the folder (index.html, sw.js, vercel.json) and import it; Framework "Other", no build command.
 
-## Use on TV
-Open your https://....vercel.app address in the TV browser, plug in the USB, press "Open USB / folder".
-
-Note: the video converter needs the COOP/COEP headers in vercel.json (already included) and an internet connection the first time, to load ffmpeg.wasm. A plain `python3 -m http.server` does not send them, so use `npx serve` or `vercel dev` locally.
-
-## My library (Google Drive)
-No server or environment variables. In Google Cloud: enable the Google Drive API, set the OAuth consent screen to External with only the `drive.file` scope and click Publish app, then create an OAuth client ID (Web application) with the authorized redirect URI `https://YOUR-SITE.vercel.app/` (include the trailing slash). Paste the Client ID into `GCID` near the top of the library code in index.html and redeploy (index.html, sw.js, vercel.json).
+## Google Drive setup
+Enable the Drive API, OAuth consent screen External with only the `drive.file` scope (Publish app), OAuth client ID (Web application) with redirect URI `https://YOUR-SITE.vercel.app/`. Put the client ID in `GCID` in index.html.
