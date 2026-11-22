@@ -645,7 +645,7 @@ $('vGo').onclick=async()=>{
 };
 
 // ---- Google Drive library (sign-in by redirect, no server; files stream through sw.js)
-const GCID='186403896044-ue871s3sdv3abrirf6bnhmicepq5la3e.apps.googleusercontent.com',GMAX=5*1024**3,GCH=32*1024*1024,GDAYS=30,GDAY=864e5,GAPI='https://www.googleapis.com/drive/v3/files';
+const GCID='186403896044-akvgrjegu85luq9q4230f0b90ivl5eb3.apps.googleusercontent.com',GMAX=5*1024**3,GCH=32*1024*1024,GDAYS=30,GDAY=864e5,GAPI='https://www.googleapis.com/drive/v3/files';
 let GF=[];
 const gdat=()=>{try{return JSON.parse(localStorage.getItem('cb-gd'))||{}}catch(e){return{}}};
 const gtok=()=>{const d=gdat();return d.t&&d.e>Date.now()+30000?d.t:''};
