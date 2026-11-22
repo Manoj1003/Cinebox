@@ -1214,7 +1214,7 @@ $('vGo').onclick=async()=>{
 };
 
 // ---- Google Drive library (sign-in by redirect, no server; playback streams through sw.js)
-const GCID='186403896044-akvgrjegu85luq9q4230f0b90ivl5eb3.apps.googleusercontent.com',GMAX=5*1024**3,GDAYS=30,GDAY=864e5,GAPI='https://www.googleapis.com/drive/v3/files',GCH=128*1024*1024;
+const GCID='689338792115-m3letsaj1i5re3ukbo4p31ercrddcgl3.apps.googleusercontent.com',GMAX=5*1024**3,GDAYS=30,GDAY=864e5,GAPI='https://www.googleapis.com/drive/v3/files',GCH=128*1024*1024;
 let GF=[],lastList=0;
 const gdat=()=>{try{return JSON.parse(localStorage.getItem('cb-gd'))||{}}catch(e){return{}}};
 const gtok=()=>{const d=gdat();return d.t&&d.e>Date.now()+30000?d.t:''};
