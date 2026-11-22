@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
 <title>Cinebox – play, upload and convert your media</title>
 <style>
 :root{color-scheme:light;--tx:#1d1d1f;--mute:rgba(60,60,67,.62);--glass:rgba(255,255,255,.62);--line:rgba(0,0,0,.09);--fill:rgba(120,120,128,.14);--fillh:rgba(120,120,128,.25);--ac:#007aff;--bg:#f5f5f7;--orb1:rgba(0,122,255,.22);--orb2:rgba(255,45,85,.14);--orb3:rgba(88,86,214,.18);--sh:0 10px 40px rgba(0,0,0,.08);--r:24px;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -216,6 +219,73 @@ button.danger{color:#ff453a}
 #ctrl input[type=range]::-webkit-slider-thumb{width:14px;height:14px;margin-top:-5px}
 #ctrl{padding-top:64px}
 @media (max-width:760px){.hero h1{font-size:2rem}#gList .th{width:72px}.shelf{grid-template-columns:repeat(2,1fr)}#audMenu{bottom:70px}}
+
+/* ===== mobile layer: every phone, portrait and landscape ===== */
+html,body{height:100%}
+@supports (height:100dvh){html,body{height:100dvh}}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+button,a,input,select{touch-action:manipulation}
+select,input[type=number],#filter{font-size:16px}
+#stage.pfs{position:fixed;inset:0;z-index:60;border-radius:0;border:0}
+@media (max-width:760px){
+  body{padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));gap:8px}
+  header{border-radius:22px;padding:8px 10px;gap:8px}
+  .logo{margin-right:auto;font-size:1.02rem}
+  #bTheme{order:2}
+  nav{order:5;flex:1 0 100%;margin:0;flex-wrap:nowrap;overflow-x:auto;gap:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  nav::-webkit-scrollbar{display:none}
+  nav a{white-space:nowrap;padding:10px 14px;flex:none}
+  header .pbtn{order:6;flex:1 1 auto;padding:11px 10px;font-size:.84rem;white-space:nowrap}
+  .page{padding:4px 2px 28px}
+  .hero{padding:10px 2px 4px}.hero h1{font-size:1.9rem}.hero .sub{font-size:.98rem}
+  .cta{flex-direction:column}.cta>*{width:100%;justify-content:center;text-align:center}
+  button.lg,a.btn.lg{padding:14px 20px}
+  .tiles{grid-template-columns:1fr;margin-top:20px}.tile{padding:16px 18px}
+  .shelf{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .panel{padding:16px;border-radius:20px}.grid{grid-template-columns:1fr 1fr}
+  input[type=file]{max-width:100%}
+  .drop{padding:26px 14px}
+  .up .us{min-width:0;flex:1 1 100%}.up .ub{width:100%}.up .ub button{flex:1;padding:10px 16px}
+  #gList li{padding:10px}#gList .n{min-width:0;flex:1 1 calc(100% - 90px)}
+  #gList a,#gList button{flex:1 1 auto;text-align:center;justify-content:center;padding:10px 14px}
+  .res li{flex-wrap:wrap}
+  #stage{border-radius:18px}
+  #toast{top:10px;font-size:.85rem;padding:10px 14px}
+  #chip{top:8px;width:calc(100% - 16px);max-width:none;padding:10px 12px}#chip .ct{min-width:0;flex:1 1 100%}
+  #chip button,#chip a{padding:9px 16px}
+  #bBig{width:76px;height:76px}#bBig svg{width:52px;height:52px}
+  #ctrl{padding:48px 12px calc(8px + env(safe-area-inset-bottom,0px))}
+  #ctrl input[type=range]{height:30px}
+  #ctrl input[type=range]::-webkit-slider-thumb{width:16px;height:16px;margin-top:-6px}
+  #ctrl input[type=range]::-moz-range-thumb{width:16px;height:16px}
+  .bar{justify-content:space-between;gap:0}
+  #ctrl .ib{width:44px;height:44px}#ctrl #bPlay{width:52px;height:52px}
+  #time{margin-left:auto;font-size:.78rem;padding-right:4px}
+  .bar .sp{flex:1 0 100%;height:0}
+  #ctrl .tb{min-height:42px;padding:8px 14px;font-size:.84rem;background:rgba(255,255,255,.16)}
+  #vol,#bOut{display:none!important}
+  #audMenu{position:fixed;left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));width:auto;max-height:62vh;max-height:62dvh;border-radius:22px;padding:8px;z-index:70}
+  #audMenu .mh{padding:10px 14px 8px;font-size:.85rem}
+  #audMenu .mi{padding:14px;min-height:54px;font-size:1rem}
+  #audMenu .dim{padding:14px}
+  aside{inset:auto 8px max(8px,env(safe-area-inset-bottom)) 8px;height:70%;max-height:70vh;max-height:70dvh;z-index:20}
+  aside.min{width:auto;align-self:auto;height:auto!important}
+  .hint{display:none}.item{padding:14px}
+  #bad .card{padding:20px;border-radius:22px}
+  #bad .row button,#bad .row a{flex:1 1 100%;justify-content:center;text-align:center;padding:13px 16px}
+  #empty .card{padding:26px 20px}#empty .row button{flex:1 1 100%;padding:13px 16px}
+}
+@media (max-width:380px){#ctrl .ib{width:40px;height:40px}#ctrl #bPlay{width:48px;height:48px}#ctrl .tb{padding:8px 11px}}
+@media (max-height:480px) and (orientation:landscape){
+  body[data-view=player] header{display:none}
+  body{padding:max(4px,env(safe-area-inset-top)) max(4px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left))}
+  #stage{border-radius:12px}
+  #ctrl{padding-top:30px}#title{display:none}
+  #ctrl .ib{width:38px;height:38px}#ctrl #bPlay{width:44px;height:44px}
+  .bar .sp{display:none}
+  #audMenu{left:auto;right:8px;width:min(400px,60vw);max-height:84dvh}
+  aside{top:8px;height:auto;width:min(380px,60vw);left:auto}
+}
 </style>
 </head>
 <body>
@@ -371,9 +441,14 @@ const w32 = n => new Uint8Array([n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n 
 const w16 = n => new Uint8Array([(n >> 8) & 255, n & 255]);
 const asc = s => Uint8Array.from(s, c => c.charCodeAt(0));
 const z = n => new Uint8Array(n);
-function cat() { const p = [].concat(...arguments).filter(Boolean); let n = 0; p.forEach(x => n += x.length); const o = new Uint8Array(n); let k = 0; p.forEach(x => { o.set(x, k); k += x.length; }); return o; }
-const box = (t, ...c) => { const b = cat(...c); return cat(w32(b.length + 8), asc(t), b); };
-const fbox = (t, ver, ...c) => box(t, w32(ver), ...c);
+function cat() {
+  const p = []; const add = x => { if (!x) return; if (Array.isArray(x)) { for (let i = 0; i < x.length; i++) add(x[i]); } else p.push(x); };
+  for (let i = 0; i < arguments.length; i++) add(arguments[i]);
+  let n = 0; for (let i = 0; i < p.length; i++) n += p[i].length;
+  const o = new Uint8Array(n); let k = 0; for (let i = 0; i < p.length; i++) { o.set(p[i], k); k += p[i].length; } return o;
+}
+const box = (t, ...c) => { const b = cat(c); return cat(w32(b.length + 8), asc(t), b); };
+const fbox = (t, ver, ...c) => box(t, w32(ver), c);
 const abort = s => { if (s && s.aborted) { const e = new Error('Cancelled'); e.name = 'AbortError'; throw e; } };
 const LANGS = (() => { try { return new Intl.DisplayNames(['en'], { type: 'language' }); } catch (e) { return null; } })();
 function langName(c) { if (!c || c === 'und' || c === 'mis' || c === 'zxx') return ''; try { const n = LANGS && LANGS.of(c); return n && n !== c ? n : c.toUpperCase(); } catch (e) { return c.toUpperCase(); } }
@@ -484,14 +559,15 @@ function buildMp4(entry, ts, sizes, durs, parts, bytes) {
     const tkhd = fbox('tkhd', 7, w32(0), w32(0), w32(1), z(4), w32(dur), z(8), z(4), w16(0x100), z(2), w32(0x10000), z(12), w32(0x10000), z(12), w32(0x40000000), z(8));
     const mdhd = fbox('mdhd', 0, w32(0), w32(0), w32(ts), w32(dur), w16(0x55c4), z(2));
     const hdlr = fbox('hdlr', 0, z(4), asc('soun'), z(12), asc('SoundHandler\0'));
-    const stts = fbox('stts', 0, w32(runs(durs).length), ...runs(durs).map(r => cat(w32(r[0]), w32(r[1]))));
+    const rr = runs(durs), st = new Uint8Array(rr.length * 8), sdv = new DataView(st.buffer); rr.forEach((r, i) => { sdv.setUint32(i * 8, r[0]); sdv.setUint32(i * 8 + 4, r[1]); });
+    const stts = fbox('stts', 0, w32(rr.length), st);
     const sz = new Uint8Array(n * 4), dv = new DataView(sz.buffer); sizes.forEach((s, i) => dv.setUint32(i * 4, s));
     const stbl = box('stbl', fbox('stsd', 0, w32(1), entry), stts, fbox('stsc', 0, w32(1), w32(1), w32(n), w32(1)), fbox('stsz', 0, w32(0), w32(n), sz), fbox('stco', 0, w32(1), w32(off)));
     const minf = box('minf', fbox('smhd', 0, z(4)), box('dinf', fbox('dref', 0, w32(1), fbox('url ', 1))), stbl);
     return box('moov', mvhd, box('trak', tkhd, box('mdia', mdhd, hdlr, minf)));
   };
   const m0 = moov(0), off = ft.length + m0.length + 8;
-  return new Blob([ft, moov(off), cat(w32(bytes + 8), asc('mdat')), ...parts], { type: 'audio/mp4' });
+  return new Blob([ft, moov(off), cat(w32(bytes + 8), asc('mdat'))].concat(parts), { type: 'audio/mp4' });
 }
 
 // ---------- MKV ----------
@@ -504,10 +580,18 @@ function vint(a, o, keep) {
   return { v, l, unk: !keep && ones };
 }
 function windowed(r, win) {
-  let ws = 0, we = 0, wd = null;
+  win = r.far ? Math.max(win, 8 << 20) : Math.max(win, 4 << 20);
+  let ws = 0, we = 0, wd = null, pf = null;
+  const pre = sig => { if (we >= r.size) { pf = null; return; } const s0 = we, e0 = Math.min(r.size, we + win), p = r.read(s0, e0, sig).catch(() => null); pf = { s: s0, e: e0, p }; };
   return async (o, n, sig) => {
     n = Math.min(n, r.size - o); if (n <= 0) return new Uint8Array(0);
-    if (!wd || o < ws || o + n > we) { const e = Math.min(r.size, o + Math.max(n, win)); wd = await r.read(o, e, sig); ws = o; we = e; }
+    if (!wd || o < ws || o + n > we) {
+      if (pf && wd && o >= ws && o <= we && o + n <= pf.e) {          // sequential scan: next window is already on its way
+        const nd = await pf.p;
+        if (nd) { const m = new Uint8Array(pf.e - o); m.set(wd.subarray(o - ws), 0); m.set(nd, we - o); wd = m; ws = o; we = pf.e; pre(sig); return wd.subarray(0, n); }
+      }
+      const e = Math.min(r.size, o + Math.max(n, win)); wd = await r.read(o, e, sig); ws = o; we = e; pre(sig);
+    }
     return wd.subarray(o - ws, o - ws + n);
   };
 }
@@ -533,7 +617,7 @@ function parseTracks(a, b) {
   return out;
 }
 async function mkvOpen(r, sig) {
-  const get = windowed(r, 1 << 20); let o = 0, seg = null, scale = 1e6, tracks = null;
+  const get = windowed(r, 4 << 20); let o = 0, seg = null, scale = 1e6, tracks = null;
   const h0 = await get(0, 16); const i0 = vint(h0, 0, true), s0 = vint(h0, i0.l); o = i0.l + s0.l + s0.v; // skip EBML header
   const h = await get(o, 16), si = vint(h, 0, true), ss = vint(h, si.l); if (si.v !== ID.SEG) throw new Error('Not a Matroska file');
   const start = o + si.l + ss.l, end = ss.unk ? r.size : Math.min(r.size, start + ss.v); o = start;
@@ -585,7 +669,7 @@ async function mkvFrames(r, st, want, onp, sig, ddMs) {
       if (ci.v === 0xe7) cts = uint(await get(cds, cde - cds), 0, cde - cds);
       else if (ci.v === 0xa3 || ci.v === 0xa1 || ci.v === 0xa0) {
         const blocks = [];
-        if (ci.v === 0xa0) { const dd = (await get(cds, cde - cds)).slice(); ebml(dd, 0, dd.length).forEach(x => { if (x.id === 0xa1) blocks.push([cds + x.s, cds + x.e]); }); }
+        if (ci.v === 0xa0) { let q = cds; while (q < cde) { const gh = await get(q, 16), gi = vint(gh, 0, true), gs = vint(gh, gi.l), gds = q + gi.l + gs.l, gde = Math.min(cde, gds + gs.v); if (gi.v === 0xa1) blocks.push([gds, gde]); q = gde; } }
         else blocks.push([cds, cde]);
         for (const [bo, bq] of blocks) {
           const bh = await get(bo, 12), tn = vint(bh, 0), rel = (bh[tn.l] << 24 >> 16) | bh[tn.l + 1], fl = bh[tn.l + 2], hl = tn.l + 3;
@@ -858,7 +942,14 @@ const skip=s=>{
   v.currentTime=t;showPv(t);wake();
 };
 const vol=d=>{v.volume=Math.max(0,Math.min(1,v.volume+d));$('vol').value=v.volume;say('Volume '+Math.round(v.volume*100)+'%',1000)};
-const fs=()=>document.fullscreenElement?document.exitFullscreen():(stage.requestFullscreen||stage.webkitRequestFullscreen||(()=>{})).call(stage);
+const fs=()=>{
+  if(document.fullscreenElement||document.webkitFullscreenElement){return(document.exitFullscreen||document.webkitExitFullscreen).call(document)}
+  if(stage.classList.contains('pfs')){stage.classList.remove('pfs');return}
+  const rq=stage.requestFullscreen||stage.webkitRequestFullscreen;
+  if(!rq){stage.classList.add('pfs');return}            // iPhone Safari: full-window mode that keeps our controls
+  try{const p=rq.call(stage);if(p&&p.then)p.then(()=>{try{screen.orientation.lock('landscape').catch(()=>{})}catch(e){}}).catch(()=>stage.classList.add('pfs'))}catch(e){stage.classList.add('pfs')}
+};
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement){try{screen.orientation.unlock()}catch(e){}}});
 const mute=()=>{if(AX.on)AX.aud.muted=!AX.aud.muted;else v.muted=!v.muted};
 const subs=()=>{if(!v.textTracks.length){say('No subtitle file with the same name was found next to this video.');return}subOn=!subOn;setSub()};
 const spd=()=>{si=(si+1)%speeds.length;v.playbackRate=speeds[si];$('bSpd').textContent=speeds[si]+'×'};
@@ -884,8 +975,18 @@ $('bFs').onclick=fs;$('bMute').onclick=mute;$('bSub').onclick=subs;$('bSpd').onc
 $('vol').oninput=e=>{v.volume=e.target.value;v.muted=false};
 // After clicking a control, release focus so the remote's OK/Enter always toggles play/pause
 ctrl.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&e.detail>0)b.blur()});
-v.addEventListener('click',toggle);
-v.addEventListener('dblclick',fs);
+let tapT=0,tapTm=null,wasHidden=false,lastTouch=0,tapTouch=false;
+stage.addEventListener('pointerdown',e=>{wasHidden=ctrl.classList.contains('hide');tapTouch=e.pointerType==='touch'||e.pointerType==='pen';if(tapTouch)lastTouch=Date.now()},true);
+v.addEventListener('click',e=>{
+  if(!tapTouch){toggle();return}
+  const now=Date.now(),r=v.getBoundingClientRect(),x=(e.clientX-r.left)/Math.max(1,r.width);
+  if(now-tapT<320){clearTimeout(tapTm);tapT=0;if(x<.35){skip(-10);say('−10 s',700)}else if(x>.65){skip(10);say('+10 s',700)}else fs();return}
+  tapT=now;clearTimeout(tapTm);
+  if(wasHidden)return;                       // first tap only reveals the controls
+  tapTm=setTimeout(toggle,320);
+});
+v.addEventListener('dblclick',()=>{if(Date.now()-lastTouch>800)fs()});
+document.addEventListener('pointerdown',e=>{const m=$('audMenu');if(!m.hidden&&!m.contains(e.target)&&e.target!==$('bAud'))m.hidden=true},true);
 document.addEventListener('fullscreenchange',()=>{if(document.activeElement)document.activeElement.blur();wake()});
 
 function wake(){

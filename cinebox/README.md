@@ -13,6 +13,8 @@ A static website (index.html + sw.js). Home with quick access to your uploads, U
   - Dolby Digital / Digital+ / DTS / TrueHD tracks in MP4/MKV are read straight from the file and only that small stream is converted, so it works for files of any size (no 1 GB limit).
   - The "Output" button only appears in browsers that can choose an audio output (it is hidden on phones and TVs).
   - Blank picture: Cinebox now probes the video. H.264 in an unsupported container is repaired in seconds (no re-encode). HEVC / 10-bit / other codecs are converted to H.264 with all audio tracks kept: "fast" (720p) or "full quality". Phones default to fast.
+  - Fixed "Maximum call stack size exceeded" when switching audio in long MKV/MP4 files, and made track reading faster (read-ahead scanning, video data inside block groups is no longer copied).
+  - Phone layout: compact scrolling menu, two-row player controls with big touch targets, audio and playlist as bottom sheets, safe-area (notch) support, landscape mode, double-tap left/right to skip 10 s (double-tap centre = fullscreen), fullscreen that also works on iPhone.
 
 ## Run locally
     npx serve        # reads vercel.json (COOP/COEP headers for the converter)
