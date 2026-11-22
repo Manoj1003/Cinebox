@@ -305,7 +305,7 @@ button.danger{color:#ff453a}
     <div id="toast" class="glass" role="status"></div>
     <div id="spin"><i></i></div>
     <div id="chip" class="glass" hidden role="status"><span class="ct" id="chipT"></span><button id="chipA" hidden></button><a id="chipL" hidden></a><button id="chipX" hidden>Cancel</button><button id="chipClose" aria-label="Dismiss">✕</button><div id="chipB"></div></div>
-    <div id="bad" hidden><div class="card glass"><h2>This browser can’t show the picture</h2><p id="badP">You can hear the sound, but the video uses a format (often HEVC / H.265 or 10-bit) that this browser can’t decode. It will play normally in Safari, in Edge or Chrome with hardware HEVC support, and on most TVs and phones.</p><div class="row"><button class="primary" id="badConv">Make a compatible copy</button><a class="btn" id="badDl" href="#" download>Download original</a><button id="badX">Keep listening</button></div></div></div>
+    <div id="bad" hidden><div class="card glass"><h2>This browser can’t show the picture</h2><p id="badP">You can hear the sound, but the video uses a format (often HEVC / H.265 or 10-bit) that this browser can’t decode. It will play normally in Safari, in Edge or Chrome with hardware HEVC support, and on most TVs and phones.</p><div class="row"><button class="primary" id="badConv">Make a compatible copy (fast)</button><button id="badFull">Full quality (slower)</button><a class="btn" id="badDl" href="#" download>Download original</a><button id="badX">Keep listening</button></div></div></div>
     <div id="empty">
       <div class="card glass">
         <h1>Plug in. Pick the drive. Play.</h1>
@@ -546,7 +546,33 @@ async function mkvOpen(r, sig) {
   }
   if (!tracks) throw new Error('No tracks found'); return { get, tracks, scale, o, end };
 }
-async function mkvFrames(r, st, want, onp, sig) {
+// Matroska lacing: several frames packed in one block (Xiph, fixed-size or EBML laces)
+function splitLaces(d, fl) {
+  const mode = (fl >> 1) & 3; if (!mode) return [d];
+  const n = d[0] + 1; let p = 1; const sizes = [];
+  if (mode === 1) { for (let i = 0; i < n - 1; i++) { let sz = 0, c; do { c = d[p++]; sz += c; } while (c === 255); sizes.push(sz); } }
+  else if (mode === 3) {
+    let v = vint(d, p); p += v.l; let prev = v.v; sizes.push(prev);
+    for (let i = 1; i < n - 1; i++) { v = vint(d, p); p += v.l; prev += v.v - (Math.pow(2, 7 * v.l - 1) - 1); sizes.push(prev); }
+  } else { const each = Math.floor((d.length - 1) / n); for (let i = 0; i < n - 1; i++) sizes.push(each); }
+  sizes.push(d.length - p - sizes.reduce((x, y) => x + y, 0));
+  const out = []; for (const sz of sizes) { if (sz < 0 || p + sz > d.length) throw new Error('Damaged audio block'); out.push(d.subarray(p, p + sz)); p += sz; }
+  return out;
+}
+// Frames of one laced block share a timestamp; spread them evenly so durations are right
+function spreadLaced(frames) {
+  let i = 0, last = 20;
+  while (i < frames.length) {
+    let j = i; while (j + 1 < frames.length && frames[j + 1].t === frames[i].t) j++;
+    const c = j - i + 1;
+    if (c > 1 && frames[i].lace) {
+      const step = j + 1 < frames.length ? (frames[j + 1].t - frames[i].t) / c : last;
+      for (let k = 1; k < c; k++) frames[i + k].t = frames[i].t + k * step; last = step;
+    } else if (j + 1 < frames.length) last = (frames[j + 1].t - frames[i].t) || last;
+    i = j + 1;
+  }
+}
+async function mkvFrames(r, st, want, onp, sig, ddMs) {
   const { get, scale } = st; let o = st.o; const frames = []; let first = null;
   while (o < st.end) {
     abort(sig); const hh = await get(o, 16); if (hh.length < 2) break; const i = vint(hh, 0, true), s = vint(hh, i.l), ds = o + i.l + s.l;
@@ -559,19 +585,21 @@ async function mkvFrames(r, st, want, onp, sig) {
       if (ci.v === 0xe7) cts = uint(await get(cds, cde - cds), 0, cde - cds);
       else if (ci.v === 0xa3 || ci.v === 0xa1 || ci.v === 0xa0) {
         const blocks = [];
-        if (ci.v === 0xa0) { const d = (await get(cds, cde - cds)); const dd = d.slice(); ebml(dd, 0, dd.length).forEach(x => { if (x.id === 0xa1) blocks.push(cds + x.s); }); }
-        else blocks.push(cds);
-        for (const bo of blocks) {
+        if (ci.v === 0xa0) { const dd = (await get(cds, cde - cds)).slice(); ebml(dd, 0, dd.length).forEach(x => { if (x.id === 0xa1) blocks.push([cds + x.s, cds + x.e]); }); }
+        else blocks.push([cds, cde]);
+        for (const [bo, bq] of blocks) {
           const bh = await get(bo, 12), tn = vint(bh, 0), rel = (bh[tn.l] << 24 >> 16) | bh[tn.l + 1], fl = bh[tn.l + 2], hl = tn.l + 3;
-          if (tn.v !== want) continue; if (fl & 6) throw new Error('Laced audio is not supported');
-          const bend = ci.v === 0xa0 ? cde : cde; const data = (await get(bo + hl, 0 + (bend - bo - hl))).slice();
-          const t = (cts + rel) * scale / 1e6; if (first === null) first = t; frames.push({ t, data });
+          if (tn.v !== want) continue;
+          const body = (await get(bo + hl, bq - bo - hl)).slice(), t0 = (cts + rel) * scale / 1e6, parts = splitLaces(body, fl);
+          if (first === null) first = t0;
+          parts.forEach((data, k) => frames.push({ t: ddMs ? t0 + k * ddMs : t0, data, lace: parts.length > 1 && !ddMs }));
         }
       }
       p = cde;
     }
     o = de; onp && onp(o / st.end);
   }
+  spreadLaced(frames);
   return { frames, first: first || 0 };
 }
 function esds(o, dsi) {
@@ -613,7 +641,7 @@ async function extract(r, id, onp, sig) {
   }
   if (k === 'mkv') {
     const st = await mkvOpen(r, sig), t = st.tracks.find(x => x.id === id); if (!t) throw new Error('Track not found');
-    const { frames, first } = await mkvFrames(r, st, id, onp, sig); if (!frames.length) throw new Error('No audio data found');
+    const { frames, first } = await mkvFrames(r, st, id, onp, sig, t.dd / 1e6); if (!frames.length) throw new Error('No audio data found');
     const entry = mkvEntry(t, frames[0].data), D = frames.map(f => Math.round((f.t - first) * t.ts / 1000)), durs = [];
     for (let i = 0; i < D.length; i++) durs.push(i < D.length - 1 ? Math.max(1, D[i + 1] - D[i]) : (durs[i - 1] || 1024));
     const sizes = frames.map(f => f.data.length);
@@ -621,7 +649,21 @@ async function extract(r, id, onp, sig) {
   }
   throw new Error('Unsupported container');
 }
-g.AXD = { list, extract, langName };
+async function extractRaw(r, id, onp, sig) {
+  const k = await sniff(r);
+  if (k === 'mp4') {
+    const m = await mp4Moov(r), t = mp4Tracks(m).find(x => x.id === id); if (!t) throw new Error('Track not found');
+    const tab = mp4Table(t), parts = await readRanges(r, tab.chunks, onp, sig);
+    return { blob: new Blob(parts), codec: t.codec, offset: 0 };
+  }
+  if (k === 'mkv') {
+    const st = await mkvOpen(r, sig), t = st.tracks.find(x => x.id === id); if (!t) throw new Error('Track not found');
+    const { frames, first } = await mkvFrames(r, st, id, onp, sig, t.dd / 1e6); if (!frames.length) throw new Error('No audio data found');
+    return { blob: new Blob(frames.map(f => f.data)), codec: t.codec, offset: first / 1000 };
+  }
+  throw new Error('Unsupported container');
+}
+g.AXD = { list, extract, extractRaw, langName, splitLaces };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -701,21 +743,49 @@ function setSub(){
   if(tr)tr.mode=subOn?'showing':'hidden';
   $('bSub').textContent=tr?(subOn?'CC on':'CC off'):'No CC';
 }
+const IS_MOBILE=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||(matchMedia('(pointer:coarse)').matches&&innerWidth<900);
 v.addEventListener('error',async()=>{
   const it=items[cur];if(!it)return;
   if(it.conv){say('Can’t play “'+it.name+'” even after converting. Skipping to the next file.',5000);if(cur<items.length-1)setTimeout(()=>play(cur+1),2500);return}
   if(it.drive&&v.error&&v.error.code!==4){say('Connection to Google Drive hiccuped. Press play to try again.',5000);return}
-  it.conv=1;const aud=/\.(mp3|m4a|wav|flac|aac|opus|oga|wma|weba)$/i.test(it.name),fm=aud?'mp3':'mp4';
+  it.conv=1;const aud=/\.(mp3|m4a|wav|flac|aac|opus|oga|wma|weba)$/i.test(it.name);
+  if(!aud){await makeCompat(it,IS_MOBILE,0,true);return}
   const size=it.drive?it.drive.size:it.file.size;
   if(size>1.5e9){showBad('This file is larger than this browser can convert (about 1.5 GB). Open it in Safari, VLC or on a TV, or download it.');return}
   try{
     const file=await getFile(it,'Downloading “'+it.name+'” to convert it…');
     chipSet({text:'This browser can’t play “'+it.name+'” directly. Converting…'});
-    const b=await conv(file,fm,0,r=>chipSet({text:'Converting “'+it.name+'” to '+fm.toUpperCase()+'… '+Math.round(r*100)+'%',p:r}));
-    const f2=new File([b],it.name.replace(/\.[^.]+$/,'')+'.'+fm,{type:MIME[fm]});
+    const b=await conv(file,'mp3',0,r=>chipSet({text:'Converting “'+it.name+'” to MP3… '+Math.round(r*100)+'%',p:r}));
+    const f2=new File([b],it.name.replace(/\.[^.]+$/,'')+'.mp3',{type:MIME.mp3});
     items[cur]={file:f2,path:it.path,name:f2.name,sub:it.sub,conv:1};chipOff();play(cur);
   }catch(e){chipOff();say('Couldn’t play “'+it.name+'”: '+e.message,7000);if(cur<items.length-1)setTimeout(()=>play(cur+1),3000)}
 });
+// Probe the video stream with ffmpeg so the cheapest fix is used: copy H.264 (seconds), re-encode HEVC / 10-bit / VP9 / AV1 / MPEG-2 / old codecs
+async function probeVideo(f,name){
+  let log='';f.setLogger(({message})=>{log+=message+'\n'});try{await f.run('-i',name)}catch(e){}f.setLogger(()=>{});
+  const l=(log.split('\n').find(x=>/Stream #0:\d+.*Video:/.test(x))||'');
+  return{codec:((/Video: (\w+)/.exec(l)||[])[1]||'').toLowerCase(),ten:/10le|10be|12le|p010|Main 10|High 10|Hi10/i.test(l)};
+}
+async function makeCompat(it,quick,pos,auto){
+  const size=it.drive?it.drive.size:it.file.size,lim=IS_MOBILE?8e8:1.5e9;
+  if(size>lim){showBad('This file is too large for this '+(IS_MOBILE?'phone':'browser')+' to convert ('+Math.round(lim/1e6)+' MB limit). Open it on a computer with Chrome or Edge, in Safari, VLC or on a TV, or download it.');return}
+  try{
+    const file=await getFile(it,'Downloading the file to convert it…'),at=pos==null?v.currentTime:pos;
+    const f=await loadFF(),ext=((file.name.match(/\.([a-z0-9]+)$/i)||[])[1]||'mp4').toLowerCase(),inn='in.'+ext;
+    chipSet({text:'Reading the video…'});
+    f.FS('writeFile',inn,await FFmpeg.fetchFile(file));
+    const pr=await probeVideo(f,inn),copy=pr.codec==='h264'&&!pr.ten;
+    f.setProgress(({ratio})=>chipSet({text:(copy?'Repairing for this browser (no re-encode, quick)… ':'Making a compatible copy… ')+Math.round(Math.max(0,Math.min(1,ratio||0))*100)+'%'+(copy?'':quick?' (720p H.264, all audio tracks kept)':' (full quality H.264, all audio tracks kept)'),p:ratio||0}));
+    const aud=['-c:a','aac','-b:a','192k','-ac','2'];
+    const vid=copy?['-c:v','copy']:quick?['-vf','scale=min(1280\\,iw):-2','-c:v','libx264','-preset','ultrafast','-crf','24','-pix_fmt','yuv420p','-threads','0']:['-c:v','libx264','-preset','veryfast','-crf','18','-pix_fmt','yuv420p','-threads','0'];
+    await f.run('-i',inn,'-map','0:v:0','-map','0:a?',...vid,...aud,'-movflags','+faststart','out.mp4');
+    const d=f.FS('readFile','out.mp4');try{f.FS('unlink',inn);f.FS('unlink','out.mp4')}catch(e){}
+    if(d.length<4096)throw new Error('the converter couldn’t read this file');
+    const blob=new Blob([d],{type:'video/mp4'}),nm=it.name.replace(/\.[^.]+$/,'')+' (compatible).mp4',f2=new File([blob],nm,{type:'video/mp4'});
+    items[cur]={file:f2,path:it.path,name:nm,sub:it.sub,conv:2};play(cur,at);
+    chipSet({text:'Done. Playing the compatible copy.',link:{href:URL.createObjectURL(blob),name:nm,label:'Save copy'}});
+  }catch(e){chipOff();say('Couldn’t convert: '+(e.message||e),7000)}
+}
 async function getFile(it,msg){
   if(!it.drive)return it.file;
   chipSet({text:msg});const r=await fetch(drvUrl(it.drive));if(!r.ok)throw new Error('download failed ('+r.status+')');
@@ -729,28 +799,13 @@ function checkPicture(){
   const it=items[cur];if(!it||/\.(mp3|m4a|wav|flac|aac|opus|oga|wma|weba)$/i.test(it.name)||it.conv>1)return;
   const q=v.getVideoPlaybackQuality&&v.getVideoPlaybackQuality();
   if(v.readyState>=1&&v.videoWidth===0)showBad();
-  else if(q&&!v.paused&&v.currentTime>2&&q.totalVideoFrames===0)showBad();
+  else if(q&&!v.paused&&v.currentTime>1.5&&(q.totalVideoFrames===0||q.totalVideoFrames-q.droppedVideoFrames===0))showBad();
 }
 v.addEventListener('loadedmetadata',()=>{clearTimeout(badT);badT=setTimeout(checkPicture,900)});
-v.addEventListener('playing',()=>{clearTimeout(badT);badT=setTimeout(checkPicture,2500)});
+v.addEventListener('playing',()=>{clearTimeout(badT);badT=setTimeout(checkPicture,2500);setTimeout(checkPicture,5000)});
 $('badX').onclick=()=>{$('bad').hidden=true};
-$('badConv').onclick=async()=>{
-  const it=items[cur];if(!it)return;$('bad').hidden=true;
-  const size=it.drive?it.drive.size:it.file.size;
-  if(size>1.5e9){showBad('This file is larger than this browser can convert (about 1.5 GB). Open it in Safari, VLC or on a TV, or download it.');return}
-  try{
-    const file=await getFile(it,'Downloading the file to convert it…'),pos=v.currentTime;
-    const f=await loadFF();let st=Date.now();
-    f.setProgress(({ratio})=>chipSet({text:'Making a compatible copy… '+Math.round(Math.max(0,Math.min(1,ratio||0))*100)+'% (visually lossless H.264, all audio tracks kept)',p:ratio||0}));
-    const ext=((file.name.match(/\.([a-z0-9]+)$/i)||[])[1]||'mp4').toLowerCase();
-    f.FS('writeFile','in.'+ext,await FFmpeg.fetchFile(file));
-    await f.run('-i','in.'+ext,'-map','0:v:0','-map','0:a?','-c:v','libx264','-preset','veryfast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-b:a','256k','-movflags','+faststart','out.mp4');
-    const d=f.FS('readFile','out.mp4');try{f.FS('unlink','in.'+ext);f.FS('unlink','out.mp4')}catch(e){}
-    const blob=new Blob([d.buffer],{type:'video/mp4'}),nm=it.name.replace(/\.[^.]+$/,'')+' (compatible).mp4',f2=new File([blob],nm,{type:'video/mp4'});
-    items[cur]={file:f2,path:it.path,name:nm,sub:it.sub,conv:2};play(cur,pos);
-    chipSet({text:'Done. Playing the compatible copy.',link:{href:URL.createObjectURL(blob),name:nm,label:'Save copy'}});
-  }catch(e){chipOff();say('Couldn’t convert: '+(e.message||e),7000)}
-};
+$('badConv').onclick=()=>{const it=items[cur];if(it){$('bad').hidden=true;makeCompat(it,true)}};
+$('badFull').onclick=()=>{const it=items[cur];if(it){$('bad').hidden=true;makeCompat(it,false)}};
 // Buffering spinner and buffered-range on the seek bar
 const spin=$('spin');
 ['waiting','seeking','loadstart','stalled'].forEach(t=>v.addEventListener(t,()=>{if(loaded&&!v.paused||t==='loadstart')spin.classList.add('on')}));
@@ -824,6 +879,7 @@ $('bBack').onclick=()=>skip(-10);$('bFwd').onclick=()=>skip(10);
 
 $('bPrev').onclick=()=>play(cur-1);$('bNext').onclick=()=>play(cur+1);
 $('bAud').onclick=cycleAud;$('bOut').onclick=pickOut;
+if(!(v.setSinkId&&navigator.mediaDevices&&navigator.mediaDevices.selectAudioOutput))$('bOut').style.display='none';
 $('bFs').onclick=fs;$('bMute').onclick=mute;$('bSub').onclick=subs;$('bSpd').onclick=spd;$('bList').onclick=togList;
 $('vol').oninput=e=>{v.volume=e.target.value;v.muted=false};
 // After clicking a control, release focus so the remote's OK/Enter always toggles play/pause
@@ -1318,8 +1374,15 @@ async function ffList(it){
 async function ffExtract(it,n,tag){
   await ffList(it).catch(()=>{});const f=await loadFF(),out='a'+n+'.m4a';
   f.setProgress(({ratio})=>chipSet({text:'Preparing '+tag+'… '+Math.round(Math.max(0,Math.min(1,ratio||0))*100)+'%',p:ratio||0}));
-  await f.run('-i',AX.ffName,'-map','0:a:'+n,'-vn','-c:a','aac','-b:a','192k',out);
+  await f.run('-i',AX.ffName,'-map','0:a:'+n,'-vn','-c:a','aac','-b:a','192k','-ac','2',out);
   const d=f.FS('readFile',out);try{f.FS('unlink',out)}catch(e){}return{blob:new Blob([d.buffer],{type:'audio/mp4'}),offset:0};
+}
+async function ffRaw(rr,fmt,tag,cancel){
+  const f=await loadFF(),inn='raw.'+fmt,out='r.m4a';
+  f.FS('writeFile',inn,new Uint8Array(await rr.blob.arrayBuffer()));
+  f.setProgress(({ratio})=>chipSet({text:'Converting '+tag+'… '+Math.round(Math.max(0,Math.min(1,ratio||0))*100)+'%',p:ratio||0,cancel}));
+  try{await f.run('-f',fmt,'-i',inn,'-vn','-c:a','aac','-b:a','192k','-ac','2',out);const d=f.FS('readFile',out);return{blob:new Blob([d],{type:'audio/mp4'}),offset:rr.offset}}
+  finally{try{f.FS('unlink',inn)}catch(e){}try{f.FS('unlink',out)}catch(e){}}
 }
 async function audList(it){
   const n=nat();if(n)return n;
@@ -1357,10 +1420,20 @@ async function pickAud(list,k){
       if(o.t.src==='ff')r=await ffExtract(it,k,tag);
       else if(canPlayAudio(o.t)){r=await AXD.extract(reader(it),o.t.id,p=>chipSet({text:'Preparing '+tag+'… '+Math.round(p*100)+'%',p,cancel}),sig)}
       else{
-        const size=it.drive?it.drive.size:it.file.size;
+        const size=it.drive?it.drive.size:it.file.size,rawFmt={ac3:'ac3',eac3:'eac3',dts:'dts',truehd:'truehd'}[o.t.codec];
+        // Read only this track's bytes (any file size) and convert just that small stream
+        if(rawFmt){
+          try{
+            chipSet({text:'Reading '+tag+'…',p:0,cancel});
+            const rr=await AXD.extractRaw(reader(it),o.t.id,p=>chipSet({text:'Reading '+tag+'… '+Math.round(p*100)+'%',p:p*.4,cancel}),sig);
+            r=await ffRaw(rr,rawFmt,tag,cancel);
+          }catch(e){if(e.name==='AbortError'||/Cancel/.test(e.message))throw e;r=null}
+        }
+        if(r);else{
         if(size>1.2e9)throw new Error((CODEC[o.t.codec]||o.t.codec)+' audio can’t be decoded by this browser. Pick another track, or open this file in Safari, VLC or on a TV.');
         chipSet({text:'This browser can’t decode '+(CODEC[o.t.codec]||o.t.codec)+'. Converting the track…',cancel});
         r=await ffExtract(it,k,tag);
+        }
       }
       c=AX.cache[k]={url:URL.createObjectURL(r.blob),offset:r.offset||0};
     }
