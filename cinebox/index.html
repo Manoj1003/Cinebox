@@ -286,9 +286,74 @@ select,input[type=number],#filter{font-size:16px}
   #audMenu{left:auto;right:8px;width:min(400px,60vw);max-height:84dvh}
   aside{top:8px;height:auto;width:min(380px,60vw);left:auto}
 }
+
+/* ===== intro splash ===== */
+#intro{position:fixed;inset:0;z-index:9999;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .5s ease}
+#intro.out{opacity:0;pointer-events:none}
+#intro video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
+#intro button{position:absolute;display:inline-flex;align-items:center;gap:6px;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding:11px 18px;font-size:.9rem;font-weight:600;border-radius:999px;cursor:pointer}
+#intro button:hover{background:rgba(255,255,255,.28)}
+#intro button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#introSkip{right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom))}
+#introSnd{left:max(16px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));width:46px;height:46px;padding:0;justify-content:center}
+#introSnd svg{width:22px;height:22px;min-width:22px;flex:none;fill:#fff}
+#introTap{padding:16px 28px;font-size:1.05rem;background:linear-gradient(135deg,var(--ac),var(--ac2));border:0}
+#introLoad{position:absolute;width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.2);border-top-color:#fff;animation:sp .8s linear infinite}
+/* ===== footer credit ===== */
+.cr{margin:34px auto 6px;padding:16px 8px calc(10px + env(safe-area-inset-bottom,0px));text-align:center;font-size:.8rem;line-height:1.7;color:var(--mute);border-top:1px solid var(--line);max-width:1040px}
+.cr b{color:var(--tx);font-weight:600}
+#empty .cr{margin:6px 0 0;padding:12px 0 0;font-size:.75rem}
 </style>
 </head>
 <body>
+<div id="intro" role="dialog" aria-label="Cinebox intro" aria-modal="true">
+  <video id="introV" src="/intro.mp4" playsinline preload="auto" disablepictureinpicture></video>
+  <div id="introLoad" aria-hidden="true"></div>
+  <button id="introTap" hidden>Tap to play</button>
+  <button id="introSnd" aria-label="Sound" hidden></button>
+  <button id="introSkip">Skip <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 4.5v15L15 12zM17 5h2.5v14H17z"/></svg></button>
+</div>
+<script>
+(function(){
+var el=document.getElementById('intro');if(!el)return;
+// Coming back from Google sign-in: don't replay the intro, the app handles the token itself
+if(/[#&](access_token|error)=/.test(location.hash)){el.remove();return}
+var v=document.getElementById('introV'),skip=document.getElementById('introSkip'),snd=document.getElementById('introSnd'),tap=document.getElementById('introTap'),load=document.getElementById('introLoad');
+var done=false,guard=0;
+var ON='<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9zM16.5 12a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>',OFF='<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9zM16 9.4l1.4-1.4 2.1 2.1L21.6 8 23 9.4l-2.1 2.1L23 13.6 21.6 15l-2.1-2.1L17.4 15 16 13.6l2.1-2.1z"/></svg>';
+function sndUi(){snd.hidden=false;snd.innerHTML=v.muted?OFF:ON;snd.setAttribute('aria-label',v.muted?'Turn sound on':'Turn sound off')}
+function lock(){document.querySelectorAll('body>*:not(#intro):not(script)').forEach(function(n){n.setAttribute('inert','')})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',lock);else lock();
+function kd(e){if(e.key==='Escape'){e.preventDefault();finish();return}if(e.key!=='Tab'&&e.target!==skip&&e.target!==snd&&e.target!==tap)e.stopPropagation()}
+addEventListener('keydown',kd,true);
+function finish(){
+  if(done)return;
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',finish);return}
+  done=true;clearTimeout(guard);try{v.pause()}catch(e){}
+  removeEventListener('keydown',kd,true);
+  document.querySelectorAll('[inert]').forEach(function(n){n.removeAttribute('inert')});
+  // After the intro, always open the home page first
+  try{history.replaceState(null,'','#home')}catch(e){}
+  dispatchEvent(new Event('hashchange'));
+  el.classList.add('out');setTimeout(function(){el.remove()},600);
+}
+function arm(ms){clearTimeout(guard);guard=setTimeout(finish,ms)}
+v.addEventListener('ended',finish);
+v.addEventListener('error',finish);
+v.addEventListener('playing',function(){load.hidden=true;tap.hidden=true;sndUi();arm(20000)});
+v.addEventListener('waiting',function(){load.hidden=false;arm(10000)});
+v.addEventListener('volumechange',function(){if(!snd.hidden)sndUi()});
+skip.onclick=finish;
+snd.onclick=function(){v.muted=!v.muted;if(v.paused)v.play().catch(function(){})};
+tap.onclick=function(){tap.hidden=true;v.muted=false;v.play().catch(function(){v.muted=true;v.play().catch(finish)})};
+arm(12000);
+// Try with sound first; browsers that block that get the muted version with a sound button
+v.muted=false;
+var p=v.play();
+if(p&&p.catch)p.catch(function(){v.muted=true;var q=v.play();if(q&&q.catch)q.catch(function(){load.hidden=true;tap.hidden=false;clearTimeout(guard)})});
+try{skip.focus({preventScroll:true})}catch(e){}
+})();
+</script>
 <header class="glass">
   <div class="logo"><i><svg viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg></i>Cinebox</div>
   <nav aria-label="Sections"><a href="#home">Home</a><a href="#library">My library</a><a href="#player">Player</a><a href="#image">Images</a><a href="#video">Video converter</a></nav>
@@ -1214,7 +1279,7 @@ $('vGo').onclick=async()=>{
 };
 
 // ---- Google Drive library (sign-in by redirect, no server; playback streams through sw.js)
-const GCID='689338792115-m3letsaj1i5re3ukbo4p31ercrddcgl3.apps.googleusercontent.com',GMAX=5*1024**3,GDAYS=30,GDAY=864e5,GAPI='https://www.googleapis.com/drive/v3/files',GCH=128*1024*1024;
+const GCID='186403896044-akvgrjegu85luq9q4230f0b90ivl5eb3.apps.googleusercontent.com',GMAX=5*1024**3,GDAYS=30,GDAY=864e5,GAPI='https://www.googleapis.com/drive/v3/files',GCH=128*1024*1024;
 let GF=[],lastList=0;
 const gdat=()=>{try{return JSON.parse(localStorage.getItem('cb-gd'))||{}}catch(e){return{}}};
 const gtok=()=>{const d=gdat();return d.t&&d.e>Date.now()+30000?d.t:''};
@@ -1561,6 +1626,13 @@ function setTheme(t){root.dataset.theme=t;$('bTheme').innerHTML=t==='dark'?SUN:M
 let saved=null;try{saved=localStorage.getItem('cb-theme')}catch(e){}
 setTheme(saved||curTheme());
 $('bTheme').onclick=()=>setTheme(curTheme()==='dark'?'light':'dark');
+})();
+</script>
+<script>
+(function(){
+var f='<footer class="cr">© <span class="yr">'+new Date().getFullYear()+'</span> Cinebox. All rights reserved.<br>Developed by <b>Manoj</b>, <b>Gaanav</b> and <b>Vismaya</b></footer>';
+document.querySelectorAll('.page .wrap').forEach(function(w){w.insertAdjacentHTML('beforeend',f)});
+var c=document.querySelector('#empty .card');if(c)c.insertAdjacentHTML('beforeend',f);
 })();
 </script>
 </body>

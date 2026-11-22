@@ -1,6 +1,6 @@
 # Cinebox – media player, cloud library and converter
 
-A static website (index.html + sw.js). Home with quick access to your uploads, USB/local player, image converter, video converter and "My library" (/library) which stores videos in your own Google Drive.
+A static website (index.html + sw.js + intro.mp4). Home with quick access to your uploads, USB/local player, image converter, video converter and "My library" (/library) which stores videos in your own Google Drive.
 
 ## What's new
 - **Uploads**: original bytes (no re-encoding, no quality loss), large streaming requests, two files at once, live speed + time left, per-file Cancel and Cancel all, automatic reconnect-and-retry, screen kept awake.
@@ -14,13 +14,14 @@ A static website (index.html + sw.js). Home with quick access to your uploads, U
   - The "Output" button only appears in browsers that can choose an audio output (it is hidden on phones and TVs).
   - Blank picture: Cinebox now probes the video. H.264 in an unsupported container is repaired in seconds (no re-encode). HEVC / 10-bit / other codecs are converted to H.264 with all audio tracks kept: "fast" (720p) or "full quality". Phones default to fast.
   - Fixed "Maximum call stack size exceeded" when switching audio in long MKV/MP4 files, and made track reading faster (read-ahead scanning, video data inside block groups is no longer copied).
+  - **Intro video** (`intro.mp4`) plays full-screen every time the site opens, then the Home page opens. Skip and sound buttons; it is skipped when returning from Google sign-in. Footer on every page: © Cinebox, developed by Manoj, Gaanav and Vismaya.
   - Phone layout: compact scrolling menu, two-row player controls with big touch targets, audio and playlist as bottom sheets, safe-area (notch) support, landscape mode, double-tap left/right to skip 10 s (double-tap centre = fullscreen), fullscreen that also works on iPhone.
 
 ## Run locally
     npx serve        # reads vercel.json (COOP/COEP headers for the converter)
 
 ## Deploy on Vercel
-Push the folder (index.html, sw.js, vercel.json) and import it; Framework "Other", no build command.
+Push the folder (index.html, sw.js, vercel.json, intro.mp4) and import it; Framework "Other", no build command.
 
 ## Google Drive setup
 Enable the Drive API, OAuth consent screen External with only the `drive.file` scope (Publish app), OAuth client ID (Web application) with redirect URI `https://YOUR-SITE.vercel.app/`. Put the client ID in `GCID` in index.html.
