@@ -302,8 +302,6 @@ html.introing body>*:not(#intro):not(script){visibility:hidden!important}
 #intro button:hover{background:rgba(255,255,255,.28)}
 #intro button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 #introSkip{right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom))}
-#introSnd{left:max(16px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));width:46px;height:46px;padding:0;justify-content:center}
-#introSnd svg{width:22px;height:22px;min-width:22px;flex:none;fill:#fff}
 #introTap{padding:16px 28px;font-size:1.05rem;background:linear-gradient(135deg,var(--ac),var(--ac2));border:0}
 #introLoad{position:absolute;width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.2);border-top-color:#fff;animation:sp .8s linear infinite}
 /* ===== footer credit ===== */
@@ -319,19 +317,17 @@ html.introing body>*:not(#intro):not(script){visibility:hidden!important}
   <div id="introLoad" aria-hidden="true"></div>
   <div id="introMsg" hidden role="status"></div>
   <button id="introTap" hidden>Tap to play</button>
-  <button id="introSnd" aria-label="Sound" hidden></button>
   <button id="introSkip">Skip <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 4.5v15L15 12zM17 5h2.5v14H17z"/></svg></button>
 </div>
 <script>
 (function(){
 var el=document.getElementById('intro');if(!el)return;
-var root=document.documentElement,v=document.getElementById('introV'),skip=document.getElementById('introSkip'),snd=document.getElementById('introSnd'),tap=document.getElementById('introTap'),load=document.getElementById('introLoad'),msg=document.getElementById('introMsg');
+var root=document.documentElement,v=document.getElementById('introV'),skip=document.getElementById('introSkip'),tap=document.getElementById('introTap'),load=document.getElementById('introLoad'),msg=document.getElementById('introMsg');
 var active=false,guard=0,retried=false;
-var ON='<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9zM16.5 12a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>',OFF='<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9zM16 9.4l1.4-1.4 2.1 2.1L21.6 8 23 9.4l-2.1 2.1L23 13.6 21.6 15l-2.1-2.1L17.4 15 16 13.6l2.1-2.1z"/></svg>';
-function sndUi(){snd.hidden=false;snd.innerHTML=v.muted?OFF:ON;snd.setAttribute('aria-label',v.muted?'Turn sound on':'Turn sound off')}
+function forceSound(){try{if(v.muted)v.muted=false;if(v.volume!==1)v.volume=1}catch(e){}}
 function lock(){if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){if(active)lock()});return}document.querySelectorAll('body>*:not(#intro):not(script)').forEach(function(n){n.setAttribute('inert','')})}
 function unlock(){document.querySelectorAll('[inert]').forEach(function(n){n.removeAttribute('inert')})}
-function kd(e){if(e.key==='Escape'){e.preventDefault();finish();return}if(e.key!=='Tab'&&e.target!==skip&&e.target!==snd&&e.target!==tap)e.stopPropagation()}
+function kd(e){if(e.key==='Escape'){e.preventDefault();finish();return}if(e.key!=='Tab'&&e.target!==skip&&e.target!==tap)e.stopPropagation()}
 function arm(ms){clearTimeout(guard);guard=setTimeout(finish,ms)}
 function finish(){
   if(!active)return;
@@ -343,15 +339,16 @@ function finish(){
   dispatchEvent(new Event('hashchange'));
   el.classList.add('out');setTimeout(function(){if(!active)el.hidden=true},600);
 }
+function needTap(){load.hidden=true;tap.hidden=false;clearTimeout(guard);try{tap.focus({preventScroll:true})}catch(e){}}
 function start(){
-  active=true;retried=false;msg.hidden=true;tap.hidden=true;snd.hidden=true;load.hidden=false;
+  active=true;retried=false;msg.hidden=true;tap.hidden=true;load.hidden=false;
   el.hidden=false;el.classList.remove('out');root.classList.add('introing');
   lock();addEventListener('keydown',kd,true);arm(30000);
   try{v.currentTime=0}catch(e){}
-  // Sound first; browsers that block it get the muted version plus a sound button
-  v.muted=false;
+  // Always plays with sound. If the browser blocks autoplay with audio, wait for a tap (never fall back to muted)
+  forceSound();
   var p=v.play();
-  if(p&&p.catch)p.catch(function(){v.muted=true;var q=v.play();if(q&&q.catch)q.catch(function(){load.hidden=true;tap.hidden=false;clearTimeout(guard)})});
+  if(p&&p.catch)p.catch(needTap);
   try{skip.focus({preventScroll:true})}catch(e){}
 }
 v.addEventListener('ended',finish);
@@ -362,12 +359,11 @@ v.addEventListener('error',function(){
   msg.textContent='The intro video could not be loaded (check that intro.mp4 is uploaded next to index.html). Opening Cinebox…';
   setTimeout(finish,3500);
 });
-v.addEventListener('playing',function(){load.hidden=true;tap.hidden=true;msg.hidden=true;sndUi();arm(20000)});
+v.addEventListener('playing',function(){load.hidden=true;tap.hidden=true;msg.hidden=true;forceSound();arm(20000)});
 v.addEventListener('waiting',function(){if(active){load.hidden=false;arm(15000)}});
-v.addEventListener('volumechange',function(){if(!snd.hidden)sndUi()});
+v.addEventListener('volumechange',function(){if(active)forceSound()});
 skip.onclick=finish;
-snd.onclick=function(){v.muted=!v.muted;if(v.paused)v.play().catch(function(){})};
-tap.onclick=function(){tap.hidden=true;load.hidden=false;arm(30000);v.muted=false;v.play().catch(function(){v.muted=true;v.play().catch(finish)})};
+tap.onclick=function(){tap.hidden=true;load.hidden=false;arm(30000);forceSound();v.play().catch(needTap)};
 window.cbIntro=function(){if(!active)start()};
 // Coming back from Google sign-in: don't replay, the app handles the token itself
 if(/[#&](access_token|error)=/.test(location.hash)){el.hidden=true;root.classList.remove('introing')}else start();
